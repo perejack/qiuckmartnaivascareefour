@@ -48,13 +48,23 @@ export function trackPurchaseConversion({
     // ignore storage failures — still fire the tag
   }
 
-  // Google Tag Manager / GTM Custom Events (Pushes to dataLayer ONLY)
+  // Robust numeric conversion for value — ensures it's never 0 or NaN if a fee is expected
+  const numericValue = typeof value === "number" && !isNaN(value) && value > 0 
+    ? value 
+    : (Number(value) > 0 ? Number(value) : 150);
+
+  // Debug log requested to inspect exactly what value is passed at execution time
+  console.log("[Conversion Tracking] applicationId:", applicationId, "processingFee (value):", numericValue, "raw:", value);
+
+  // Google Tag Manager / GTM Custom Events (Pushes to dataLayer)
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
     event: "lead_form_submitted",
     conversion_type: "payment_success",
     transaction_id: applicationId || `ORDER_${Date.now()}`,
-    value: value ?? 150,
+    value: numericValue,
+    conversion_value: numericValue,
+    price: numericValue,
     currency: currency,
     supermarket_application_id: applicationId,
   });
@@ -62,7 +72,26 @@ export function trackPurchaseConversion({
   window.dataLayer.push({
     event: "payment_success",
     transaction_id: applicationId || `ORDER_${Date.now()}`,
-    value: value ?? 150,
+    value: numericValue,
+    conversion_value: numericValue,
     currency: currency,
+  });
+
+  // Also push standard ecommerce purchase format in case GTM Conversion Tag uses "Use DataLayer" or GA4 Ecommerce values
+  window.dataLayer.push({
+    event: "purchase",
+    ecommerce: {
+      transaction_id: applicationId || `ORDER_${Date.now()}`,
+      value: numericValue,
+      currency: currency,
+      items: [
+        {
+          item_id: applicationId || "supermarket_app",
+          item_name: "Supermarket Application Processing Fee",
+          price: numericValue,
+          quantity: 1,
+        },
+      ],
+    },
   });
 }

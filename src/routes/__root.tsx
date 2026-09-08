@@ -118,7 +118,23 @@ function RootShell({ children }: { children: ReactNode }) {
 new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
 j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-W8CBN54F');`,
+})(window,document,'script','dataLayer','GTM-W8CBN54F');
+
+// Ensure GCLID (Google Click ID) and URL query parameters are preserved in cookies across SPA navigation
+(function() {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    var gclid = params.get('gclid');
+    var gbraid = params.get('gbraid');
+    var wbraid = params.get('wbraid');
+    if (gclid) {
+      sessionStorage.setItem('gs_gclid', gclid);
+      document.cookie = '_gcl_aw=GCL.' + Math.floor(Date.now()/1000) + '.' + gclid + '; path=/; max-age=7776000; SameSite=Lax';
+    }
+    if (gbraid) sessionStorage.setItem('gs_gbraid', gbraid);
+    if (wbraid) sessionStorage.setItem('gs_wbraid', wbraid);
+  } catch (e) {}
+})();`,
           }}
         />
         {/* End Google Tag Manager */}

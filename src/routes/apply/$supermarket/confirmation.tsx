@@ -72,7 +72,8 @@ function ConfirmationPage() {
     setForwardingEmail((prev) => (prev?.trim() ? prev : next.email || ""));
     setReady(true);
 
-    const confirmedFee = Number(next.processingFee) || brand.processingFee;
+    const confirmedFee = Number(next.processingFee) > 0 ? Number(next.processingFee) : (brand.processingFee || 150);
+    console.log("[Confirmation Page] payload.processingFee:", next.processingFee, "brand.processingFee:", brand.processingFee, "confirmedFee:", confirmedFee);
     trackPurchaseConversion({ applicationId: next.applicationId, value: confirmedFee, currency: "KES" });
 
     trackTikTokIdentify({ email: next.email || next.contactValue || undefined, phone: next.phone || next.mpesaNumber || undefined, externalId: next.applicationId || undefined });
