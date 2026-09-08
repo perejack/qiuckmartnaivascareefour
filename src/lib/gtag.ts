@@ -25,17 +25,16 @@ interface ConversionParams {
 }
 
 /**
- * Fire the Google Ads Purchase conversion once per confirmed payment.
- * Called only from the Confirmation page, after HashPay's webhook confirms payment.
- *
- * De-duplicated via sessionStorage so a page refresh doesn't double-count.
+ * Fire both Google Ads Purchase conversion and standard GTM dataLayer events
+ * once per confirmed payment.
+ * Called only from the Confirmation page, after HashPay confirms payment.
  */
 export function trackPurchaseConversion({
   applicationId,
   value,
   currency = "KES",
 }: ConversionParams = {}) {
-  if (typeof window === "undefined" || typeof window.gtag !== "function") return;
+  if (typeof window === "undefined") return;
 
   // De-duplicate: one conversion per applicationId per session
   const storageKey = applicationId
@@ -49,25 +48,45 @@ export function trackPurchaseConversion({
     // ignore storage failures — still fire the tag
   }
 
-  // 1. Google Ads primary conversion event
-  window.gtag("event", "conversion", {
-    send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
-    ...(applicationId ? { transaction_id: applicationId } : {}),
-    ...(value != null ? { value, currency } : {}),
-  });
-
-  // 2. Standard GA4/Google Ads 'purchase' event (captures value and currency across all reports)
-  window.gtag("event", "purchase", {
+  // 1. Google Tag Manager / GTM Custom Event (Pushes to dataLayer)
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({
+    event: "lead_form_submitted",
+    conversion_type: "payment_success",
     transaction_id: applicationId || `ORDER_${Date.now()}`,
     value: value ?? 150,
     currency: currency,
-    items: [
-      {
-        item_id: applicationId || "supermarket_app",
-        item_name: "Supermarket Application Processing Fee",
-        price: value ?? 150,
-        quantity: 1,
-      },
-    ],
+    supermarket_application_id: applicationId,
   });
+
+  window.dataLayer.push({
+    event: "payment_success",
+    transaction_id: applicationId || `ORDER_${Date.now()}`,
+    value: value ?? 150,
+    currency: currency,
+  });
+
+  // 2. Direct gtag Google Ads primary conversion event
+  if (typeof window.gtag === "function") {
+    window.gtag("event", "conversion", {
+      send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
+      ...(applicationId ? { transaction_id: applicationId } : {}),
+      ...(value != null ? { value, currency } : {}),
+    });
+
+    // 3. Standard GA4/Google Ads 'purchase' event
+    window.gtag("event", "purchase", {
+      transaction_id: applicationId || `ORDER_${Date.now()}`,
+      value: value ?? 150,
+      currency: currency,
+      items: [
+        {
+          item_id: applicationId || "supermarket_app",
+          item_name: "Supermarket Application Processing Fee",
+          price: value ?? 150,
+          quantity: 1,
+        },
+      ],
+    });
+  }
 }

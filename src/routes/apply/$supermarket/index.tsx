@@ -198,14 +198,24 @@ function ApplyPage() {
       value: brand.processingFee,
       currency: "KES",
     });
-    // Google Ads: page_view is auto-sent via gtag config; fire a custom begin_application event
-    if (typeof window !== "undefined" && typeof window.gtag === "function") {
-      window.gtag("event", "begin_application", {
-        send_to: GOOGLE_ADS_ID,
+    // GTM dataLayer push & Google Ads event
+    if (typeof window !== "undefined") {
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({
+        event: "begin_application",
         supermarket: brand.name,
         value: brand.processingFee,
         currency: "KES",
       });
+
+      if (typeof window.gtag === "function") {
+        window.gtag("event", "begin_application", {
+          send_to: GOOGLE_ADS_ID,
+          supermarket: brand.name,
+          value: brand.processingFee,
+          currency: "KES",
+        });
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -218,14 +228,24 @@ function ApplyPage() {
         value: brand.processingFee,
         currency: "KES",
       });
-      // Google Ads: initiate_checkout micro-conversion
-      if (typeof window !== "undefined" && typeof window.gtag === "function") {
-        window.gtag("event", "begin_checkout", {
-          send_to: GOOGLE_ADS_ID,
+      // GTM dataLayer push & Google Ads event
+      if (typeof window !== "undefined") {
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({
+          event: "begin_checkout",
           currency: "KES",
           value: brand.processingFee,
           items: [{ item_name: `${brand.name} Interview Booking`, price: brand.processingFee, quantity: 1 }],
         });
+
+        if (typeof window.gtag === "function") {
+          window.gtag("event", "begin_checkout", {
+            send_to: GOOGLE_ADS_ID,
+            currency: "KES",
+            value: brand.processingFee,
+            items: [{ item_name: `${brand.name} Interview Booking`, price: brand.processingFee, quantity: 1 }],
+          });
+        }
       }
     }
   }, [step, supermarket, brand.name, brand.processingFee]);
