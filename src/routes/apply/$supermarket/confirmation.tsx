@@ -223,7 +223,7 @@ function ConfirmationPage() {
     if (blockForwardWithEmailMessage()) return;
     const senderEmail = (forwardingEmail || "").trim();
     try {
-      const { jsPDF } = await import("jspdf");
+      const { jsPDF } = await import("jspdf/dist/jspdf.es.min.js");
       const doc = new jsPDF({ unit: "pt", format: "a4" });
       let y = 64; const left = 48;
       doc.setFont("helvetica", "bold"); doc.setFontSize(18);
