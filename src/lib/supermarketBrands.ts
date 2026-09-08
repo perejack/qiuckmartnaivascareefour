@@ -15,7 +15,7 @@ export const supermarketData: Record<string, SupermarketBrand> = {
     gradient: "from-red-50 to-rose-50",
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRJBpIQCnYaXsDbJMWUazSeLBMI0wdWX2WOYHS4BWdhtZXRAmsnKsurFY4&s=10",
-    processingFee: 160,
+    processingFee: 10,
   },
   naivas: {
     name: "Naivas",
