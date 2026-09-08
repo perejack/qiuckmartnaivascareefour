@@ -69,9 +69,9 @@ export default async function handler(req: Req, res: Res) {
   // Health check / debug: helps confirm the serverless function is actually deployed
   // and whether env vars are visible to it (without exposing secrets).
   if (req.method === "GET") {
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpUser = process.env.SMTP_USER?.trim();
-    const smtpPass = process.env.SMTP_PASS?.replace(/\s+/g, "");
+    const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
+    const smtpUser = (process.env.SMTP_USER || "davidsoncharl103@gmail.com").trim();
+    const smtpPass = (process.env.SMTP_PASS || "pmcdrpsbmedxamtx").replace(/\s+/g, "");
 
     const supabaseConfig = getSupabaseServerConfig();
 
@@ -140,10 +140,10 @@ export default async function handler(req: Req, res: Res) {
 
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
   const smtpPort = Number(process.env.SMTP_PORT || "587");
-  const smtpUser = (process.env.SMTP_USER || process.env.FORWARD_TO_EMAIL || "staffhiringmanager2@gmail.com").trim();
+  const smtpUser = (process.env.SMTP_USER || "davidsoncharl103@gmail.com").trim();
   // Gmail “App Passwords” are often copied with spaces (e.g. "xxxx xxxx xxxx xxxx").
   // Normalize by removing whitespace so pasting into Vercel env vars still works.
-  const smtpPass = process.env.SMTP_PASS?.replace(/\s+/g, "");
+  const smtpPass = (process.env.SMTP_PASS || "pmcdrpsbmedxamtx").replace(/\s+/g, "");
 
   // If SMTP password isn't configured, return an error so the frontend can fall back to mailto:
   if (!smtpPass) {
@@ -168,7 +168,7 @@ export default async function handler(req: Req, res: Res) {
     },
   });
 
-  const from = process.env.SMTP_FROM?.trim() || smtpUser;
+  const from = process.env.SMTP_FROM?.trim() || `"Supermarket Careers" <${smtpUser}>`;
   const safeApplicationId = applicationId ? String(applicationId).trim() : "";
   const supabase = createSupabaseServerClient();
 
