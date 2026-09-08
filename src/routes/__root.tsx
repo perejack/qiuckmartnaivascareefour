@@ -124,22 +124,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         {/* End Google Tag Manager */}
 
         <HeadContent />
-
-        {/* Google Ads / GA4 tag */}
-        <script
-          async
-          src="https://www.googletagmanager.com/gtag/js?id=AW-18435275422"
-        />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'AW-18435275422', { send_page_view: true });
-`.trim(),
-          }}
-        />
       </head>
       <body>
         {/* Google Tag Manager (noscript) */}

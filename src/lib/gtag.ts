@@ -25,9 +25,9 @@ interface ConversionParams {
 }
 
 /**
- * Fire both Google Ads Purchase conversion and standard GTM dataLayer events
- * once per confirmed payment.
+ * Fire GTM dataLayer events once per confirmed payment.
  * Called only from the Confirmation page, after HashPay confirms payment.
+ * GTM container (GTM-W8CBN54F) listens to these events to fire Google Ads conversions.
  */
 export function trackPurchaseConversion({
   applicationId,
@@ -48,7 +48,7 @@ export function trackPurchaseConversion({
     // ignore storage failures — still fire the tag
   }
 
-  // 1. Google Tag Manager / GTM Custom Event (Pushes to dataLayer)
+  // Google Tag Manager / GTM Custom Events (Pushes to dataLayer ONLY)
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({
     event: "lead_form_submitted",
@@ -65,28 +65,4 @@ export function trackPurchaseConversion({
     value: value ?? 150,
     currency: currency,
   });
-
-  // 2. Direct gtag Google Ads primary conversion event
-  if (typeof window.gtag === "function") {
-    window.gtag("event", "conversion", {
-      send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
-      ...(applicationId ? { transaction_id: applicationId } : {}),
-      ...(value != null ? { value, currency } : {}),
-    });
-
-    // 3. Standard GA4/Google Ads 'purchase' event
-    window.gtag("event", "purchase", {
-      transaction_id: applicationId || `ORDER_${Date.now()}`,
-      value: value ?? 150,
-      currency: currency,
-      items: [
-        {
-          item_id: applicationId || "supermarket_app",
-          item_name: "Supermarket Application Processing Fee",
-          price: value ?? 150,
-          quantity: 1,
-        },
-      ],
-    });
-  }
 }
