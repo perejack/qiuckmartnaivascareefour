@@ -9,11 +9,11 @@ declare global {
 export const GOOGLE_ADS_ID = "AW-18435275422";
 
 /**
- * The "send_to" conversion label for the Purchase/payment-confirmed action.
- * If you have a specific conversion label from Google Ads (e.g. AW-18435275422/AbCdEfGhIjK),
- * it goes here. Until then, firing AW-18435275422 will log the conversion event directly.
+ * Exact Google Ads Conversion label from your screenshot:
+ * Conversion ID: 18435275422
+ * Conversion label: C3CKCJ6ri_EcEJ71z9ZE
  */
-export const GOOGLE_ADS_CONVERSION_SEND_TO = "AW-18435275422";
+export const GOOGLE_ADS_CONVERSION_SEND_TO = "AW-18435275422/C3CKCJ6ri_EcEJ71z9ZE";
 
 interface ConversionParams {
   /** The confirmed HashPay application ID — used as the transaction_id to prevent duplicate counting. */
