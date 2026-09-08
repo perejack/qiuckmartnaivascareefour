@@ -189,26 +189,76 @@ function ConfirmationPage() {
   };
 
   const doForwardNow = async () => {
-    if (applicationForwarded) { toast.info("This application has already been forwarded."); return; }
+    if (applicationForwarded) {
+      toast.info("This application has already been forwarded. No need to send again.");
+      return;
+    }
     if (blockForwardWithEmailMessage()) return;
+
     const senderEmail = (forwardingEmail || "").trim();
+
     setIsForwardingNow(true);
     try {
       const res = await fetch("/api/forward-application", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: HIRING_MANAGER_EMAIL, subject: forwardSubject, message: hiringManagerMessage, replyTo: senderEmail, applicationId: payload.applicationId || null, applicantName: payload.fullName || null, applicantPhone: payload.phone || null, supermarket: brand.name, position: payload.selectedPosition, interviewDate: bookingDateText, interviewTime: payload.interviewTime }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: HIRING_MANAGER_EMAIL,
+          subject: forwardSubject,
+          message: hiringManagerMessage,
+          replyTo: senderEmail,
+          applicationId: payload.applicationId || null,
+          applicantName: payload.fullName || null,
+          applicantPhone: payload.phone || null,
+          supermarket: brand.name,
+          position: payload.selectedPosition,
+          interviewDate: bookingDateText,
+          interviewTime: payload.interviewTime,
+        }),
       });
+
       if (!res.ok) {
-        let apiError = ""; let apiSuggestion = "";
-        try { const data = await res.json(); apiError = String(data?.error || data?.detail || ""); apiSuggestion = String(data?.suggestion || ""); } catch { /* ignore */ }
-        if (res.status === 409) { markApplicationForwarded(); toast.info("Application already forwarded."); return; }
-        if (res.status === 503 || /not configured|missing smtp/i.test(apiError)) { window.location.href = buildMailtoUrl(); toast.success("Email draft opened. Tap Send to confirm."); return; }
-        toast.error(apiSuggestion ? `${apiError} Did you mean ${apiSuggestion}?` : apiError || "Failed to send email automatically"); return;
+        let apiError = "";
+        let apiSuggestion = "";
+        try {
+          const data = await res.json();
+          apiError = String(data?.error || data?.detail || "");
+          apiSuggestion = String(data?.suggestion || "");
+        } catch {
+          // ignore
+        }
+
+        if (res.status === 400 && apiError) {
+          toast.error(apiSuggestion ? `${apiError} Did you mean ${apiSuggestion}?` : apiError);
+          return;
+        }
+
+        if (res.status === 409) {
+          markApplicationForwarded();
+          toast.info("This application has already been forwarded. No need to send again.");
+          return;
+        }
+
+        if (res.status === 503 || /not configured|missing smtp/i.test(apiError)) {
+          window.location.href = buildMailtoUrl();
+          toast.success("Email draft opened. Kindly tap Send to confirm your application.");
+          return;
+        }
+
+        // If backend fails (e.g. 500 or unknown error), fall back to opening mailto draft so user is never blocked!
+        window.location.href = buildMailtoUrl();
+        toast.success("Email draft opened. Kindly tap Send to confirm your application.");
+        return;
       }
+
       toast.success("Sent to hiring manager successfully");
       markApplicationForwarded();
-    } catch { window.location.href = buildMailtoUrl(); toast.success("Email draft opened. Tap Send to confirm."); }
-    finally { setIsForwardingNow(false); }
+    } catch {
+      window.location.href = buildMailtoUrl();
+      toast.success("Email draft opened. Kindly tap Send to confirm your application.");
+    } finally {
+      setIsForwardingNow(false);
+    }
   };
 
   const forwardNow = () => {
