@@ -33,7 +33,7 @@ export function useEmailDeliverability(email: string, enabled = true) {
     const controller = new AbortController();
     setDeliverability({ status: "checking" });
 
-    const timer = window.setTimeout(async () => {
+    const timer = setTimeout(async () => {
       try {
         const response = await fetch("/api/verify-email", {
           method: "POST",
@@ -76,7 +76,7 @@ export function useEmailDeliverability(email: string, enabled = true) {
     }, 700);
 
     return () => {
-      window.clearTimeout(timer);
+      clearTimeout(timer);
       controller.abort();
     };
   }, [email, enabled, skipRemoteCheck, validation.valid]);

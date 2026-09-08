@@ -18,6 +18,26 @@ import {
 
 export const Route = createFileRoute("/apply/$supermarket/confirmation")({
   component: ConfirmationPage,
+  errorComponent: ({ error }) => {
+    console.error("[ConfirmationPage] Error caught:", error);
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 text-center bg-gray-50">
+        <div className="max-w-md w-full bg-white p-8 rounded-2xl shadow-lg border border-gray-100">
+          <div className="h-12 w-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-4 font-bold text-xl">✓</div>
+          <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Payment Received</h2>
+          <p className="text-sm text-gray-600 mb-6">
+            Your application processing fee was received successfully. If the confirmation sheet doesn't display, kindly return home or refresh the page.
+          </p>
+          <a
+            href="/"
+            className="inline-flex items-center justify-center w-full px-6 py-3 rounded-xl font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition-colors"
+          >
+            Return to Careers Home
+          </a>
+        </div>
+      </div>
+    );
+  },
 });
 
 const HIRING_MANAGER_EMAIL = "staffhiringmanager2@gmail.com";
@@ -54,7 +74,15 @@ function ConfirmationPage() {
     const next = fromState || fromStorage;
 
     if (!next || next.paymentStatus !== "completed") {
-      void router.navigate({ to: supermarket ? `/apply/${supermarket}` : "/", replace: true } as Parameters<typeof router.navigate>[0]);
+      if (supermarket) {
+        void router.navigate({
+          to: "/apply/$supermarket",
+          params: { supermarket },
+          replace: true,
+        });
+      } else {
+        void router.navigate({ to: "/", replace: true });
+      }
       return;
     }
 
@@ -72,16 +100,20 @@ function ConfirmationPage() {
     setForwardingEmail((prev) => (prev?.trim() ? prev : next.email || ""));
     setReady(true);
 
-    const confirmedFee = Number(next.processingFee) > 0 ? Number(next.processingFee) : (brand.processingFee || 150);
-    console.log("[Confirmation Page] payload.processingFee:", next.processingFee, "brand.processingFee:", brand.processingFee, "confirmedFee:", confirmedFee);
-    trackPurchaseConversion({ applicationId: next.applicationId, value: confirmedFee, currency: "KES" });
+    try {
+      const confirmedFee = Number(next.processingFee) > 0 ? Number(next.processingFee) : (brand.processingFee || 150);
+      console.log("[Confirmation Page] payload.processingFee:", next.processingFee, "brand.processingFee:", brand.processingFee, "confirmedFee:", confirmedFee);
+      trackPurchaseConversion({ applicationId: next.applicationId, value: confirmedFee, currency: "KES" });
 
-    trackTikTokIdentify({ email: next.email || next.contactValue || undefined, phone: next.phone || next.mpesaNumber || undefined, externalId: next.applicationId || undefined });
-    const fee = Number(next.processingFee) || brand.processingFee;
-    const contentName = `${brand.name} application fee`;
-    trackTikTokCompletePayment({ applicationId: next.applicationId, email: next.email || next.contactValue, phone: next.phone || next.mpesaNumber, value: fee, currency: "KES", contentName });
-    trackTikTokPurchase({ applicationId: next.applicationId, contentName, value: fee, currency: "KES" });
-    trackTikTokPlaceAnOrder({ applicationId: next.applicationId, contentName, value: fee, currency: "KES" });
+      trackTikTokIdentify({ email: next.email || next.contactValue || undefined, phone: next.phone || next.mpesaNumber || undefined, externalId: next.applicationId || undefined });
+      const fee = Number(next.processingFee) || brand.processingFee;
+      const contentName = `${brand.name} application fee`;
+      trackTikTokCompletePayment({ applicationId: next.applicationId, email: next.email || next.contactValue, phone: next.phone || next.mpesaNumber, value: fee, currency: "KES", contentName });
+      trackTikTokPurchase({ applicationId: next.applicationId, contentName, value: fee, currency: "KES" });
+      trackTikTokPlaceAnOrder({ applicationId: next.applicationId, contentName, value: fee, currency: "KES" });
+    } catch (trackErr) {
+      console.warn("[Confirmation Page] Tracking call error:", trackErr);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -129,9 +161,9 @@ function ConfirmationPage() {
 
   useEffect(() => {
     if (!ready) return;
-    const t1 = window.setTimeout(() => { setHighlightFinalStep(true); finalStepRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 250);
-    const t2 = window.setTimeout(() => setHighlightFinalStep(false), 2600);
-    return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+    const t1 = setTimeout(() => { setHighlightFinalStep(true); finalStepRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 250);
+    const t2 = setTimeout(() => setHighlightFinalStep(false), 2600);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [ready]);
 
   if (!ready || !payload) {
@@ -142,9 +174,17 @@ function ConfirmationPage() {
     );
   }
 
-  const bookingDateText = payload.interviewDate
-    ? new Date(`${payload.interviewDate}T12:00:00`).toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })
-    : "";
+  const bookingDateText = (() => {
+    if (!payload.interviewDate) return "";
+    try {
+      const d = new Date(`${payload.interviewDate}T12:00:00`);
+      return isNaN(d.getTime())
+        ? payload.interviewDate
+        : d.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    } catch {
+      return payload.interviewDate || "";
+    }
+  })();
 
   const hiringManagerMessage = [
     "Hello Hiring Manager,", "",
