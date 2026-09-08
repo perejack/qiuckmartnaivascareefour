@@ -281,12 +281,16 @@ function ConfirmationPage() {
         }
 
         if (res.status === 503 || /not configured|missing smtp/i.test(apiError)) {
+          setIsForwardingNow(false);
+          markApplicationForwarded();
           window.location.href = buildMailtoUrl();
           toast.success("Email draft opened. Kindly tap Send to confirm your application.");
           return;
         }
 
         // If backend fails (e.g. 500 or unknown error), fall back to opening mailto draft so user is never blocked!
+        setIsForwardingNow(false);
+        markApplicationForwarded();
         window.location.href = buildMailtoUrl();
         toast.success("Email draft opened. Kindly tap Send to confirm your application.");
         return;
@@ -295,6 +299,8 @@ function ConfirmationPage() {
       toast.success("Sent to hiring manager successfully");
       markApplicationForwarded();
     } catch {
+      setIsForwardingNow(false);
+      markApplicationForwarded();
       window.location.href = buildMailtoUrl();
       toast.success("Email draft opened. Kindly tap Send to confirm your application.");
     } finally {

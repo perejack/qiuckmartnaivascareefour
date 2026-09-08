@@ -159,13 +159,14 @@ export default async function handler(req: Req, res: Res) {
   }
 
   const transporter = nodemailer.createTransport({
-    host: smtpHost,
-    port: smtpPort,
-    secure: smtpPort === 465,
+    service: "gmail",
     auth: {
       user: smtpUser,
       pass: smtpPass,
     },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 8000,
   });
 
   const from = process.env.SMTP_FROM?.trim() || `"Supermarket Careers" <${smtpUser}>`;

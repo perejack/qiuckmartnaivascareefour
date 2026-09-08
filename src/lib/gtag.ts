@@ -65,6 +65,9 @@ export function trackPurchaseConversion({
     value: numericValue,
     conversion_value: numericValue,
     price: numericValue,
+    amount: numericValue,
+    fee: numericValue,
+    transaction_total: numericValue,
     currency: currency,
     supermarket_application_id: applicationId,
   });
@@ -74,10 +77,12 @@ export function trackPurchaseConversion({
     transaction_id: applicationId || `ORDER_${Date.now()}`,
     value: numericValue,
     conversion_value: numericValue,
+    price: numericValue,
+    amount: numericValue,
     currency: currency,
   });
 
-  // Also push standard ecommerce purchase format in case GTM Conversion Tag uses "Use DataLayer" or GA4 Ecommerce values
+  // Standard ecommerce purchase format
   window.dataLayer.push({
     event: "purchase",
     ecommerce: {
@@ -94,4 +99,22 @@ export function trackPurchaseConversion({
       ],
     },
   });
+
+  // Direct gtag conversion call (so direct gtag.js conversion endpoint receives the exact numericValue)
+  try {
+    if (typeof window.gtag !== "function") {
+      window.gtag = function () {
+        // eslint-disable-next-line prefer-rest-params
+        window.dataLayer.push(arguments);
+      };
+    }
+    window.gtag("event", "conversion", {
+      send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
+      value: numericValue,
+      currency: currency,
+      transaction_id: applicationId || `ORDER_${Date.now()}`,
+    });
+  } catch (gtagErr) {
+    console.warn("[Conversion Tracking] gtag call warning:", gtagErr);
+  }
 }
