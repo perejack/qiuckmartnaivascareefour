@@ -5,19 +5,15 @@ declare global {
   }
 }
 
-/** Your new Google Ads Measurement ID (updated from old AW-18339005888). */
-export const GOOGLE_ADS_ID = "AW-18409428048";
+/** Your active Google Ads Measurement ID */
+export const GOOGLE_ADS_ID = "AW-18435275422";
 
 /**
  * The "send_to" conversion label for the Purchase/payment-confirmed action.
- * ⚠️  Replace the label part (after the slash) with the real one from:
- *   Google Ads → Goals → Conversions → your conversion → "Tag setup" tab.
- * It looks like: AW-XXXXXXXXX/YYYYYYYYYYY
- *
- * Once you create the conversion action in Google Ads (Category: Purchase),
- * copy the full send_to string here.
+ * If you have a specific conversion label from Google Ads (e.g. AW-18435275422/AbCdEfGhIjK),
+ * it goes here. Until then, firing AW-18435275422 will log the conversion event directly.
  */
-export const GOOGLE_ADS_CONVERSION_SEND_TO = "AW-18409428048/pjLoCLT8hugcENCopspE";
+export const GOOGLE_ADS_CONVERSION_SEND_TO = "AW-18435275422";
 
 interface ConversionParams {
   /** The confirmed HashPay application ID — used as the transaction_id to prevent duplicate counting. */
@@ -53,13 +49,25 @@ export function trackPurchaseConversion({
     // ignore storage failures — still fire the tag
   }
 
+  // 1. Google Ads primary conversion event
   window.gtag("event", "conversion", {
     send_to: GOOGLE_ADS_CONVERSION_SEND_TO,
-    // transaction_id prevents Google Ads from counting the same payment twice
-    // if the confirmation page is refreshed or visited again.
     ...(applicationId ? { transaction_id: applicationId } : {}),
-    // value + currency enable value-based bidding ("Maximize Conversion Value").
-    // Without these, Google Ads counts conversions but can't optimise for revenue.
     ...(value != null ? { value, currency } : {}),
+  });
+
+  // 2. Standard GA4/Google Ads 'purchase' event (captures value and currency across all reports)
+  window.gtag("event", "purchase", {
+    transaction_id: applicationId || `ORDER_${Date.now()}`,
+    value: value ?? 150,
+    currency: currency,
+    items: [
+      {
+        item_id: applicationId || "supermarket_app",
+        item_name: "Supermarket Application Processing Fee",
+        price: value ?? 150,
+        quantity: 1,
+      },
+    ],
   });
 }

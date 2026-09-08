@@ -113,10 +113,9 @@ function RootShell({ children }: { children: ReactNode }) {
       <head>
         <HeadContent />
         {/* Google Ads / GA4 — must load before any gtag("event",...) calls */}
-        {/* Replace AW-18409428048 if your Measurement ID ever changes */}
         <script
           async
-          src="https://www.googletagmanager.com/gtag/js?id=AW-18409428048"
+          src="https://www.googletagmanager.com/gtag/js?id=AW-18435275422"
         />
         <script
           dangerouslySetInnerHTML={{
@@ -124,7 +123,7 @@ function RootShell({ children }: { children: ReactNode }) {
 window.dataLayer = window.dataLayer || [];
 function gtag(){dataLayer.push(arguments);}
 gtag('js', new Date());
-gtag('config', 'AW-18409428048', { send_page_view: true });
+gtag('config', 'AW-18435275422', { send_page_view: true });
 `.trim(),
           }}
         />
