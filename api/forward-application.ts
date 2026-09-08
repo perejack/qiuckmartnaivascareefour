@@ -138,24 +138,22 @@ export default async function handler(req: Req, res: Res) {
     }
   }
 
-  const smtpHost = process.env.SMTP_HOST;
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
   const smtpPort = Number(process.env.SMTP_PORT || "587");
-  const smtpUser = process.env.SMTP_USER?.trim();
+  const smtpUser = (process.env.SMTP_USER || process.env.FORWARD_TO_EMAIL || "staffhiringmanager2@gmail.com").trim();
   // Gmail “App Passwords” are often copied with spaces (e.g. "xxxx xxxx xxxx xxxx").
   // Normalize by removing whitespace so pasting into Vercel env vars still works.
   const smtpPass = process.env.SMTP_PASS?.replace(/\s+/g, "");
 
-  // If SMTP isn't configured, return an error so the frontend can fall back to mailto:
-  if (!smtpHost || !smtpUser || !smtpPass) {
+  // If SMTP password isn't configured, return an error so the frontend can fall back to mailto:
+  if (!smtpPass) {
     res.status(503).json({
       ok: false,
-      error: "Email forwarding is not configured (missing SMTP env vars).",
+      error: "Email forwarding is not configured (missing SMTP_PASS).",
       missing: {
-        SMTP_HOST: !smtpHost,
-        SMTP_USER: !smtpUser,
-        SMTP_PASS: !smtpPass,
+        SMTP_PASS: true,
       },
-      hint: "If you just added env vars on Vercel, redeploy so this function picks them up.",
+      hint: "Set SMTP_PASS on Vercel with your Gmail app password.",
     });
     return;
   }
