@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { createClient } from "@supabase/supabase-js";
-import { formatOrientationDateText } from "./lib/orientationDate";
-import { ensureApplicantEmailDeliverable } from "./lib/serverEmail";
+import { formatOrientationDateText } from "./lib/orientationDate.js";
+import { ensureApplicantEmailDeliverable } from "./lib/serverEmail.js";
 
 const DEFAULT_SUPABASE_URL = "https://mmizjhxxajhooslhyafb.supabase.co";
 const PLACEHOLDER_RE = /your_supabase|example\.com|changeme|placeholder/i;

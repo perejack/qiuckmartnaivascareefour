@@ -3,7 +3,7 @@ import {
   getEmailDomain,
   isKnownEmailProvider,
   validateEmail,
-} from "./lib/serverEmail";
+} from "./lib/serverEmail.js";
 
 type Req = {
   method?: string;
