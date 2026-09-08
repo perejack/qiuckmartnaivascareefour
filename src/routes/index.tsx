@@ -74,7 +74,7 @@ const stores: Store[] = [
     location: "Branches across Kenya",
     description: "Grow with a proudly Kenyan retail team serving communities every day.",
     image: naivasImage,
-    url: "https://supermarketjobs.vercel.app/apply/naivas",
+    url: "/apply/naivas",
     roles: ["Cashiers", "Store Keepers", "Cleaners", "Sales Attendants", "Chefs"],
   },
   {
@@ -83,7 +83,7 @@ const stores: Store[] = [
     location: "Branches across Kenya",
     description: "Move fast, serve brilliantly and build practical retail experience.",
     image: quickmartImage,
-    url: "https://supermarketjobs.vercel.app/apply/quickmart",
+    url: "/apply/quickmart",
     roles: ["Cashiers", "Marketers", "Loaders & Off-loaders", "Drivers", "Guards"],
   },
   {
@@ -92,7 +92,7 @@ const stores: Store[] = [
     location: "Kenya opportunities",
     description: "Join an international retail network with room to learn and lead.",
     image: carrefourImage,
-    url: "https://supermarketjobs.vercel.app/apply/carrefour",
+    url: "/apply/carrefour",
     roles: ["Warehouse Supervisors", "Sales Attendants", "Chefs", "Drivers", "Store Keepers"],
   },
 ];
@@ -161,8 +161,6 @@ function Index() {
                 <a
                   key={store.name}
                   href={store.url}
-                  target="_blank"
-                  rel="noreferrer"
                   className={`inline-flex items-center gap-1.5 rounded ${store.accent} px-3 py-1.5 text-white shadow-sm transition hover:opacity-90`}
                 >
                   {store.name} <ArrowUpRight className="size-3.5" />
@@ -196,7 +194,7 @@ function Index() {
                   <p className="mt-2 text-xs font-bold uppercase text-muted-foreground">{store.location}</p>
                   <p className="mt-5 min-h-14 leading-7 text-muted-foreground">{store.description}</p>
                   <Button asChild size="xl" className={`mt-6 w-full ${store.accent}`}>
-                    <a href={store.url} target="_blank" rel="noreferrer">Apply at {store.name} <ArrowUpRight /></a>
+                    <a href={store.url}>Apply at {store.name} <ArrowUpRight /></a>
                   </Button>
                 </div>
               </article>
@@ -225,7 +223,7 @@ function Index() {
                 <div className="flex items-center gap-2 font-bold"><Search className="size-4 text-primary" /> Matching supermarkets</div>
                 <span className="rounded-full bg-secondary px-3 py-1 text-xs font-bold">{filteredStores.length} found</span>
               </div>
-              <div className="divide-y divide-border">
+              <div className="divide-y border-border">
                 {filteredStores.map((store) => (
                   <div key={store.name} className="grid gap-5 px-2 py-6 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div>
@@ -234,7 +232,7 @@ function Index() {
                         {store.roles.map((role) => <span key={role} className="rounded bg-secondary px-2.5 py-1 text-xs font-semibold text-secondary-foreground">{role}</span>)}
                       </div>
                     </div>
-                    <Button variant="outline" size="lg" asChild><a href={store.url} target="_blank" rel="noreferrer">View careers <ArrowUpRight /></a></Button>
+                    <Button variant="outline" size="lg" asChild><a href={store.url}>View careers <ArrowUpRight /></a></Button>
                   </div>
                 ))}
                 {filteredStores.length === 0 && <div className="py-14 text-center text-muted-foreground">No matching supermarket listed. Try another role.</div>}
