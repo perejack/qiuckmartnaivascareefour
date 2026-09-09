@@ -239,10 +239,16 @@ function ConfirmationPage() {
     const senderEmail = (forwardingEmail || "").trim();
 
     setIsForwardingNow(true);
+
+    // Hard 12-second abort — Vercel Lambda blocks SMTP; if API hangs we open mailto: automatically
+    const controller = new AbortController();
+    const abortTimer = setTimeout(() => controller.abort(), 12000);
+
     try {
       const res = await fetch("/api/forward-application", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           to: HIRING_MANAGER_EMAIL,
           subject: forwardSubject,
@@ -257,6 +263,7 @@ function ConfirmationPage() {
           interviewTime: payload.interviewTime,
         }),
       });
+      clearTimeout(abortTimer);
 
       if (!res.ok) {
         let apiError = "";
@@ -280,19 +287,17 @@ function ConfirmationPage() {
           return;
         }
 
-        if (res.status === 503 || /not configured|missing smtp/i.test(apiError)) {
-          window.location.href = buildMailtoUrl();
-          toast.success("Email draft opened. Kindly tap Send to confirm your application.");
-          return;
-        }
-
-        toast.error(apiError || "Failed to send email automatically");
+        // Any other error (500, 503, timeout) → open mailto: draft immediately
+        window.location.href = buildMailtoUrl();
+        toast.success("Email draft opened. Kindly tap Send to confirm your application.");
         return;
       }
 
       toast.success("Sent to hiring manager successfully");
       markApplicationForwarded();
     } catch {
+      clearTimeout(abortTimer);
+      // AbortError (12s timeout) or network error → fall back to mailto: so user is never blocked
       window.location.href = buildMailtoUrl();
       toast.success("Email draft opened. Kindly tap Send to confirm your application.");
     } finally {

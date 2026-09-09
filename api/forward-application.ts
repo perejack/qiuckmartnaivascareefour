@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { createClient } from "@supabase/supabase-js";
 import { formatOrientationDateText } from "./lib/orientationDate";
-import { ensureApplicantEmailDeliverable } from "./lib/serverEmail";
+// Note: ensureApplicantEmailDeliverable removed — DNS MX lookups hang on AWS Lambda/Vercel
 
 const DEFAULT_SUPABASE_URL = "https://mmizjhxxajhooslhyafb.supabase.co";
 const PLACEHOLDER_RE = /your_supabase|example\.com|changeme|placeholder/i;
@@ -136,16 +136,10 @@ export default async function handler(req: Req, res: Res) {
   }
 
   const applicantEmail = replyTo ? String(replyTo).trim() : "";
-  if (applicantEmail) {
-    const emailCheck = await ensureApplicantEmailDeliverable(applicantEmail);
-    if (!emailCheck.ok) {
-      res.status(400).json({
-        ok: false,
-        error: emailCheck.error || "Invalid applicant email address",
-        suggestion: emailCheck.suggestion,
-      });
-      return;
-    }
+  // Basic format-only validation (no DNS lookup — DNS MX checks hang on AWS Lambda)
+  if (applicantEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(applicantEmail)) {
+    res.status(400).json({ ok: false, error: "Invalid applicant email address format" });
+    return;
   }
 
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
@@ -179,12 +173,31 @@ export default async function handler(req: Req, res: Res) {
       user: smtpUser,
       pass: smtpPass,
     },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 8000,
+    connectionTimeout: 6000,
+    greetingTimeout: 6000,
+    socketTimeout: 6000,
   });
 
-  const sendWithTimeout = async (mailOptions: any, timeoutMs = 9000) => {
+  // ── Total function deadline: 9 seconds ──────────────────────────────────────
+  // AWS Lambda (Vercel) blocks outbound SMTP — connections hang silently.
+  // If we haven't responded within 9s the entire Lambda hits Vercel's 300s
+  // timeout and the user sees a spinner forever. Instead we respond with 503
+  // so the frontend immediately opens a mailto: draft.
+  let deadlineTriggered = false;
+  const deadlineTimer = setTimeout(() => {
+    deadlineTriggered = true;
+    try {
+      res.status(503).json({
+        ok: false,
+        error: "Email forwarding timed out (SMTP blocked by cloud provider)",
+        hint: "Please use the email draft that has been prepared for you instead.",
+      });
+    } catch {
+      // Response already sent
+    }
+  }, 9000);
+
+  const sendWithTimeout = async (mailOptions: any, timeoutMs = 7000) => {
     return Promise.race([
       transporter.sendMail(mailOptions),
       new Promise((_, reject) =>
@@ -210,6 +223,7 @@ export default async function handler(req: Req, res: Res) {
       .eq("application_id", safeApplicationId);
 
     if (appRow?.forwarded_at || (queuedCount ?? 0) > 0) {
+      clearTimeout(deadlineTimer);
       res.status(409).json({
         ok: false,
         alreadyForwarded: true,
@@ -231,22 +245,28 @@ export default async function handler(req: Req, res: Res) {
         "X-Applicant-Name": applicantName ? String(applicantName) : "",
         "X-Applicant-Phone": applicantPhone ? String(applicantPhone) : "",
       },
-    }, 9000);
+    }, 7000);
+
+    // SMTP to hiring manager succeeded — cancel the 9-second deadline immediately
+    clearTimeout(deadlineTimer);
+
+    // If the deadline timer already fired and sent a 503, don't send a second response
+    if (deadlineTriggered) return;
+
+    // ── Mark as forwarded in Supabase ────────────────────────────────────────
+    let autoReplyQueued = false;
+    let autoReplyQueueError: string | null = null;
 
     if (safeApplicationId && supabase) {
       await supabase
         .from("applications")
         .update({ forwarded_at: new Date().toISOString() })
         .eq("application_id", safeApplicationId);
-       // ─── EMAIL #1: Confirmation ───────────────────────────────────────────────
-    // Sent immediately in this same request via SMTP — no cron needed.
-    // This avoids needing a sub-minute cron on Vercel Hobby plan.
-    let autoReplyQueued = false;
-    let autoReplyQueueError: string | null = null;
-    let confirmationSent = false;
+    }
 
+    // ── Queue ALL applicant emails in Supabase (no second SMTP call in-request) ──
+    // The cron job (process-auto-replies) sends them. This keeps response fast.
     try {
-      const applicantEmail = replyTo ? String(replyTo).trim() : "";
       const queueSupabase = supabase ?? createSupabaseServerClient();
       const selectionDelayHours = Number(process.env.AUTO_SELECTION_DELAY_HOURS || "19");
       const selectionDelayMinutes = Number(process.env.AUTO_SELECTION_DELAY_MINUTES || "0");
@@ -264,14 +284,14 @@ export default async function handler(req: Req, res: Res) {
         return `STF-${(hash % 90000) + 10000}`;
       };
 
-      if (applicantEmail) {
+      if (applicantEmail && queueSupabase) {
         const safeApplicantName = applicantName ? String(applicantName).trim() : "";
         const safePosition = position ? String(position).trim() : "";
         const safeSupermarket = supermarket ? String(supermarket).trim() : "";
         const safeInterviewDate = interviewDate ? String(interviewDate).trim() : "";
         const safeInterviewTime = interviewTime ? String(interviewTime).trim() : "";
 
-        const { count: existingQueueCount } = safeApplicationId && queueSupabase
+        const { count: existingQueueCount } = safeApplicationId
           ? await queueSupabase
               .from("pending_auto_replies")
               .select("id", { count: "exact", head: true })
@@ -310,57 +330,6 @@ export default async function handler(req: Req, res: Res) {
             "\n\nIf you need to correct any details, reply to this email.\n\n" +
             "Regards,\nHiring Team";
 
-          // ── Send Email #1 immediately (no queue) ──────────────────────────
-          try {
-            const siteUrl = (process.env.VITE_APP_URL || "https://www.supermarkethiring.space").replace(/\/+$/, "");
-            const replyToAddr = buildReplyTo();
-            const footerText = `\n\n--\nSupermarket Hiring Team\n${siteUrl}\nReply to this email if you have questions.`;
-            const htmlBody = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f6f6f6;">
-<div style="max-width:600px;margin:24px auto;background:#fff;border:1px solid #e8e8e8;border-radius:8px;padding:24px;font-family:Arial,sans-serif;font-size:14px;line-height:1.6;color:#222;">
-${confirmMessage.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>\n")}
-<hr style="margin:24px 0;border:none;border-top:1px solid #eee;">
-<p style="font-size:12px;color:#666;margin:0;">
-<strong>Supermarket Hiring Team</strong><br>
-<a href="${siteUrl}" style="color:#2563eb;">${siteUrl.replace(/^https?:\/\//, "")}</a><br>
-If you have questions, reply to this email.
-</p>
-</div>
-</body>
-</html>`;
-
-            await sendWithTimeout({
-              from,
-              to: applicantEmail,
-              subject: confirmSubject,
-              text: confirmMessage + footerText,
-              html: htmlBody,
-              ...(replyToAddr ? { replyTo: replyToAddr } : {}),
-              headers: { Importance: "normal", "X-Priority": "3" },
-            }, 6000);
-            confirmationSent = true;
-
-            // Mark as sent in Supabase so the cron won't double-send it
-            if (queueSupabase) {
-              await queueSupabase.from("pending_auto_replies").insert({
-                send_at: new Date().toISOString(),
-                sent_at: new Date().toISOString(),
-                status: "sent",
-                application_id: applicationId ? String(applicationId) : null,
-                applicant_name: safeApplicantName || null,
-                to_email: applicantEmail,
-                subject: confirmSubject,
-                message: confirmMessage,
-              });
-            }
-          } catch (sendErr: any) {
-            // Non-fatal: confirmation failed, but don't block the queue emails
-            autoReplyQueueError = `Confirmation send failed: ${sendErr?.message ?? sendErr}`;
-          }
-
-          // ── Queue Email #2 (Selection) and Email #3 (Onboarding) for cron ──
           const selectionDelayMs = (selectionDelayHours * 60 + selectionDelayMinutes) * 60 * 1000;
           const selectionSendAt = new Date(Date.now() + selectionDelayMs);
           const selectionSubject = `You've Been Selected – ${safePosition || "{Position}"} | ${safeSupermarket || "{Supermarket}"} Recruitment`;
@@ -371,9 +340,9 @@ If you have questions, reply to this email.
             `As a result, the interview stage will not be required at this time. You are confirmed as a selected candidate for the ${safePosition || "{Position}"} position at ${safeSupermarket || "{Supermarket}"}.\n\n` +
             `What Happens Next\n\n` +
             `Once the current recruitment round is complete, our HR team will be in touch with full details of your orientation, including:\n\n` +
-            `• Confirmed date(s) and time(s)\n` +
-            `• Venue and branch location\n` +
-            `• What to bring and how to prepare\n\n` +
+            `\u2022 Confirmed date(s) and time(s)\n` +
+            `\u2022 Venue and branch location\n` +
+            `\u2022 What to bring and how to prepare\n\n` +
             `Please ensure your contact details are up to date so we can reach you promptly. If any of your details have changed, simply reply to this email.\n\n` +
             `We look forward to welcoming you to the ${safeSupermarket || "{Supermarket}"} team.\n\n` +
             `Warm regards,\n` +
@@ -383,67 +352,74 @@ If you have questions, reply to this email.
           const onboardingDelayMs = (onboardingDelayHours * 60 + onboardingDelayMinutes) * 60 * 1000;
           const onboardingSendAt = new Date(Date.now() + onboardingDelayMs);
           const staffNumber = generateStaffNumber(safeApplicationId || applicantEmail);
-          const onboardingSubject = `Welcome to the team! 🎉`;
+          const onboardingSubject = `Welcome to the team! \uD83C\uDF89`;
           const onboardingMessage =
-            `Welcome to the team! 🎉\n\n` +
+            `Welcome to the team! \uD83C\uDF89\n\n` +
             `Your staff number is: ${staffNumber}\n\n` +
             "This number will appear on your staff badge. Please use it to log in to the Employee Portal to complete your application, get assigned your branch and access all onboarding resources.\n\n" +
             "Once logged in, you will be able to:\n\n" +
-            "📄 Download your work contract\n" +
-            "🪪 Apply for your staff ID badge\n" +
-            "👕 Apply for your work uniform\n" +
-            "📚 Access your training materials\n\n" +
+            "\uD83D\uDCC4 Download your work contract\n" +
+            "\uD83E\uDEAA Apply for your staff ID badge\n" +
+            "\uD83D\uDC55 Apply for your work uniform\n" +
+            "\uD83D\uDCDA Access your training materials\n\n" +
             "Kindly ensure you:\n" +
-            "✅ Sign your work contract\n" +
-            "✅ Bring the signed copy with you on your orientation day\n\n" +
-            `📅 Orientation Date: ${orientationDate}\n` +
-            "📍 Venue: Your allocated branch as indicated in your contract\n\n\n\n" +
-            "👉 Click this link to confirm and dowload work contract and apply for staff badge\n" +
+            "\u2705 Sign your work contract\n" +
+            "\u2705 Bring the signed copy with you on your orientation day\n\n" +
+            `\uD83D\uDCC5 Orientation Date: ${orientationDate}\n` +
+            "\uD83D\uDCCD Venue: Your allocated branch as indicated in your contract\n\n\n\n" +
+            "\uD83D\uDC49 Click this link to confirm and dowload work contract and apply for staff badge\n" +
             `click:${employeePortalUrl}\n\n\n\n` +
             `for any assistance email us ${supportEmail}`;
 
-          if (queueSupabase) {
-            const { error: queueError } = await queueSupabase.from("pending_auto_replies").insert([
-              {
-                send_at: selectionSendAt.toISOString(),
-                application_id: applicationId ? String(applicationId) : null,
-                applicant_name: safeApplicantName || null,
-                to_email: applicantEmail,
-                subject: selectionSubject,
-                message: selectionMessage,
-              },
-              {
-                send_at: onboardingSendAt.toISOString(),
-                application_id: applicationId ? String(applicationId) : null,
-                applicant_name: safeApplicantName || null,
-                to_email: applicantEmail,
-                subject: onboardingSubject,
-                message: onboardingMessage,
-              },
-            ]);
+          const { error: queueError } = await queueSupabase.from("pending_auto_replies").insert([
+            {
+              send_at: new Date(Date.now() + 60000).toISOString(), // confirmation: 1 minute delay
+              application_id: applicationId ? String(applicationId) : null,
+              applicant_name: safeApplicantName || null,
+              to_email: applicantEmail,
+              subject: confirmSubject,
+              message: confirmMessage,
+            },
+            {
+              send_at: selectionSendAt.toISOString(),
+              application_id: applicationId ? String(applicationId) : null,
+              applicant_name: safeApplicantName || null,
+              to_email: applicantEmail,
+              subject: selectionSubject,
+              message: selectionMessage,
+            },
+            {
+              send_at: onboardingSendAt.toISOString(),
+              application_id: applicationId ? String(applicationId) : null,
+              applicant_name: safeApplicantName || null,
+              to_email: applicantEmail,
+              subject: onboardingSubject,
+              message: onboardingMessage,
+            },
+          ]);
 
-            if (queueError) {
-              autoReplyQueueError = queueError.message;
-            } else {
-              autoReplyQueued = true;
-            }
+          if (queueError) {
+            autoReplyQueueError = queueError.message;
           } else {
-            autoReplyQueueError = "Supabase not configured (missing SUPABASE_SERVICE_ROLE_KEY).";
+            autoReplyQueued = true;
           }
         }
       } else {
-        autoReplyQueueError = "Applicant email missing or invalid.";
+        autoReplyQueueError = "Applicant email missing or Supabase not configured.";
       }
     } catch (e: any) {
       autoReplyQueueError = e?.message ? String(e.message) : String(e);
     }
 
-    res.status(200).json({ ok: true, confirmationSent, autoReplyQueued, autoReplyQueueError });
+    res.status(200).json({ ok: true, autoReplyQueued, autoReplyQueueError });
   } catch (err: any) {
-    res.status(500).json({
+    clearTimeout(deadlineTimer);
+    if (deadlineTriggered) return; // deadline already sent the 503
+    res.status(503).json({
       ok: false,
-      error: "Failed to send email",
+      error: "Failed to send email (SMTP timed out or blocked)",
       detail: err?.message ? String(err.message) : String(err),
     });
   }
 }
+
