@@ -149,7 +149,8 @@ export default async function handler(req: Req, res: Res) {
   }
 
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpPort = Number(process.env.SMTP_PORT || "587");
+  const smtpPort = Number(process.env.SMTP_PORT || "465");
+  const isSecure = smtpPort === 465;
   const smtpUser = (process.env.SMTP_USER || "davidsoncharl103@gmail.com").trim();
   // Gmail “App Passwords” are often copied with spaces (e.g. "xxxx xxxx xxxx xxxx").
   // Normalize by removing whitespace so pasting into Vercel env vars still works.
@@ -173,12 +174,24 @@ export default async function handler(req: Req, res: Res) {
   const transporter = nodemailer.createTransport({
     host: smtpHost,
     port: smtpPort,
-    secure: smtpPort === 465,
+    secure: isSecure,
     auth: {
       user: smtpUser,
       pass: smtpPass,
     },
+    connectionTimeout: 8000,
+    greetingTimeout: 8000,
+    socketTimeout: 8000,
   });
+
+  const sendWithTimeout = async (mailOptions: any, timeoutMs = 9000) => {
+    return Promise.race([
+      transporter.sendMail(mailOptions),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`SMTP send timed out after ${timeoutMs}ms`)), timeoutMs)
+      ),
+    ]);
+  };
 
   const from = process.env.SMTP_FROM?.trim() || smtpUser;
   const safeApplicationId = applicationId ? String(applicationId).trim() : "";
@@ -207,7 +220,7 @@ export default async function handler(req: Req, res: Res) {
   }
 
   try {
-    await transporter.sendMail({
+    await sendWithTimeout({
       from,
       to: targetEmail,
       subject: String(subject || "New application forwarded"),
@@ -218,7 +231,7 @@ export default async function handler(req: Req, res: Res) {
         "X-Applicant-Name": applicantName ? String(applicantName) : "",
         "X-Applicant-Phone": applicantPhone ? String(applicantPhone) : "",
       },
-    });
+    }, 9000);
 
     if (safeApplicationId && supabase) {
       await supabase
@@ -318,7 +331,7 @@ If you have questions, reply to this email.
 </body>
 </html>`;
 
-            await transporter.sendMail({
+            await sendWithTimeout({
               from,
               to: applicantEmail,
               subject: confirmSubject,
@@ -326,7 +339,7 @@ If you have questions, reply to this email.
               html: htmlBody,
               ...(replyToAddr ? { replyTo: replyToAddr } : {}),
               headers: { Importance: "normal", "X-Priority": "3" },
-            });
+            }, 6000);
             confirmationSent = true;
 
             // Mark as sent in Supabase so the cron won't double-send it
