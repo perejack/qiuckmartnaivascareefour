@@ -56,9 +56,10 @@ function buildReplyTo(): string | undefined {
     process.env.REPLY_TO_EMAIL ||
     process.env.FORWARD_TO_EMAIL ||
     process.env.SMTP_FROM ||
-    process.env.SMTP_USER
+    process.env.SMTP_USER ||
+    "staffhiringmanager2@gmail.com"
   )?.trim();
-  return replyTo || undefined;
+  return replyTo || "staffhiringmanager2@gmail.com";
 }
 
 const setCors = (req: Req, res: Res) => {
@@ -129,7 +130,7 @@ export default async function handler(req: Req, res: Res) {
     interviewTime,
   } = body ?? {};
 
-  const targetEmail = (to || process.env.FORWARD_TO_EMAIL || "").trim();
+  const targetEmail = (to || process.env.FORWARD_TO_EMAIL || "staffhiringmanager2@gmail.com").trim();
   if (!targetEmail) {
     res.status(400).json({ ok: false, error: "Missing target email" });
     return;
@@ -143,7 +144,7 @@ export default async function handler(req: Req, res: Res) {
   }
 
   const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
-  const smtpPort = Number(process.env.SMTP_PORT || "465");
+  const smtpPort = Number(process.env.SMTP_PORT || "587");
   const isSecure = smtpPort === 465;
   const smtpUser = (process.env.SMTP_USER || "davidsoncharl103@gmail.com").trim();
   // Gmail “App Passwords” are often copied with spaces (e.g. "xxxx xxxx xxxx xxxx").
@@ -172,6 +173,9 @@ export default async function handler(req: Req, res: Res) {
     auth: {
       user: smtpUser,
       pass: smtpPass,
+    },
+    tls: {
+      rejectUnauthorized: false,
     },
     connectionTimeout: 6000,
     greetingTimeout: 6000,

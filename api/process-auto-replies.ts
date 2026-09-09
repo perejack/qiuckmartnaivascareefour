@@ -47,9 +47,10 @@ function buildReplyTo(): string | undefined {
     process.env.REPLY_TO_EMAIL ||
     process.env.FORWARD_TO_EMAIL ||
     process.env.SMTP_FROM ||
-    process.env.SMTP_USER
+    process.env.SMTP_USER ||
+    "staffhiringmanager2@gmail.com"
   )?.trim();
-  return replyTo || undefined;
+  return replyTo || "staffhiringmanager2@gmail.com";
 }
 
 function textToHtml(text: string): string {
@@ -168,10 +169,10 @@ async function runHandler(req: Req, res: Res) {
     return;
   }
 
-  const smtpHost = process.env.SMTP_HOST;
+  const smtpHost = process.env.SMTP_HOST || "smtp.gmail.com";
   const smtpPort = Number(process.env.SMTP_PORT || "587");
-  const smtpUser = process.env.SMTP_USER?.trim();
-  const smtpPass = process.env.SMTP_PASS?.replace(/\s+/g, "");
+  const smtpUser = (process.env.SMTP_USER || "davidsoncharl103@gmail.com").trim();
+  const smtpPass = (process.env.SMTP_PASS || "pmcdrpsbmedxamtx").replace(/\s+/g, "");
   if (!smtpHost || !smtpUser || !smtpPass) {
     res.status(503).json({
       ok: false,
@@ -186,6 +187,7 @@ async function runHandler(req: Req, res: Res) {
     port: smtpPort,
     secure: smtpPort === 465,
     auth: { user: smtpUser, pass: smtpPass },
+    tls: { rejectUnauthorized: false },
   });
 
   const supabase = createSupabaseServerClient();
