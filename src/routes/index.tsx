@@ -181,23 +181,31 @@ function Index() {
             <p className="max-w-lg text-base leading-7 text-muted-foreground md:justify-self-end">Pick any of the three supermarkets and complete your application on the company’s official careers website.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
-            {stores.map((store, index) => (
-              <article key={store.name} className="group relative overflow-hidden rounded-lg bg-card shadow-card flex flex-col">
-                <div className={`absolute left-0 top-0 z-10 h-1.5 w-full ${store.accent}`} />
-                <div className="relative aspect-[5/4] overflow-hidden">
-                  <img src={store.image} alt={`${store.name} supermarket team member`} loading="lazy" width={900} height={720} className="size-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute right-2 top-2 sm:right-4 sm:top-4 grid size-6 sm:size-9 place-items-center rounded-full bg-card font-display text-xs sm:text-sm font-extrabold text-card-foreground">0{index + 1}</div>
-                </div>
-                <div className="p-3.5 sm:p-6 md:p-7 flex flex-col flex-1">
-                  <div className="flex items-center justify-between gap-1 sm:gap-4"><h3 className="font-display text-lg sm:text-2xl md:text-3xl font-extrabold">{store.name}</h3><MapPin className="size-4 sm:size-5 text-muted-foreground shrink-0" /></div>
-                  <p className="mt-1 sm:mt-2 text-[10px] sm:text-xs font-bold uppercase text-muted-foreground">{store.location}</p>
-                  <p className="mt-2 sm:mt-5 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-muted-foreground line-clamp-2 sm:line-clamp-none flex-1">{store.description}</p>
-                  <Button asChild size="default" className={`mt-3 sm:mt-6 w-full text-xs sm:text-base h-9 sm:h-12 ${store.accent}`}>
-                    <a href={store.url}>Apply at {store.name} <ArrowUpRight className="size-3.5 sm:size-4" /></a>
-                  </Button>
-                </div>
-              </article>
-            ))}
+            {stores.map((store, index) => {
+              const isLastCard = index === 2;
+              return (
+                <article
+                  key={store.name}
+                  className={`group relative overflow-hidden rounded-lg bg-card shadow-card flex flex-col ${
+                    isLastCard ? "col-span-2 lg:col-span-1" : ""
+                  }`}
+                >
+                  <div className={`absolute left-0 top-0 z-10 h-1.5 w-full ${store.accent}`} />
+                  <div className={`relative overflow-hidden ${isLastCard ? "aspect-[2/1] sm:aspect-[5/4]" : "aspect-[5/4]"}`}>
+                    <img src={store.image} alt={`${store.name} supermarket team member`} loading="lazy" width={900} height={720} className="size-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <div className="absolute right-2 top-2 sm:right-4 sm:top-4 grid size-6 sm:size-9 place-items-center rounded-full bg-card font-display text-xs sm:text-sm font-extrabold text-card-foreground">0{index + 1}</div>
+                  </div>
+                  <div className="p-3.5 sm:p-6 md:p-7 flex flex-col flex-1">
+                    <div className="flex items-center justify-between gap-1 sm:gap-4"><h3 className="font-display text-lg sm:text-2xl md:text-3xl font-extrabold">{store.name}</h3><MapPin className="size-4 sm:size-5 text-muted-foreground shrink-0" /></div>
+                    <p className="mt-1 sm:mt-2 text-[10px] sm:text-xs font-bold uppercase text-muted-foreground">{store.location}</p>
+                    <p className="mt-2 sm:mt-5 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-muted-foreground line-clamp-2 sm:line-clamp-none flex-1">{store.description}</p>
+                    <Button asChild size="default" className={`mt-3 sm:mt-6 w-full text-xs sm:text-base h-9 sm:h-12 ${store.accent}`}>
+                      <a href={store.url}>Apply at {store.name} <ArrowUpRight className="size-3.5 sm:size-4" /></a>
+                    </Button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>
