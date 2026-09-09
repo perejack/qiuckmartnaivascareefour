@@ -146,8 +146,13 @@ function Index() {
           <div className="max-w-3xl">
             <p className="mb-4 flex items-center gap-2 text-sm font-bold uppercase text-highlight"><Sparkles className="size-4" /> Kenya’s retail opportunity hub</p>
             <h1 className="max-w-3xl font-display text-5xl font-extrabold leading-[0.93] tracking-normal sm:text-6xl lg:text-8xl">
-              Get Hired at Kenya’s Top Supermarkets.
+              Get Hired at Kenya's Top Supermarkets.
             </h1>
+            <div className="mt-4 font-display font-extrabold leading-none tracking-tight" aria-label="Naivas. Quickmart. Carrefour.">
+              <span className="block text-4xl sm:text-6xl lg:text-8xl" style={{ color: "#FFA500" }}>Naivas.</span>
+              <span className="block text-4xl sm:text-6xl lg:text-8xl" style={{ color: "#22A32A" }}>Quickmart.</span>
+              <span className="block text-4xl sm:text-6xl lg:text-8xl" style={{ color: "#1565C0" }}>Carrefour.</span>
+            </div>
             <p className="mt-6 max-w-xl text-base leading-7 text-hero-muted md:text-lg">
               Discover open vacancies at Naivas, Quickmart, and Carrefour. Apply directly on official career portals and kickstart your retail career today.
             </p>
