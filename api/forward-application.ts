@@ -1,7 +1,7 @@
 import nodemailer from "nodemailer";
 import { createClient } from "@supabase/supabase-js";
-import { formatOrientationDateText } from "./lib/orientationDate.js";
-import { ensureApplicantEmailDeliverable } from "./lib/serverEmail.js";
+import { formatOrientationDateText } from "./lib/orientationDate";
+import { ensureApplicantEmailDeliverable } from "./lib/serverEmail";
 
 const DEFAULT_SUPABASE_URL = "https://mmizjhxxajhooslhyafb.supabase.co";
 const PLACEHOLDER_RE = /your_supabase|example\.com|changeme|placeholder/i;
@@ -50,6 +50,16 @@ type Res = {
   setHeader: (name: string, value: string) => void;
   end: (data?: any) => void;
 };
+
+function buildReplyTo(): string | undefined {
+  const replyTo = (
+    process.env.REPLY_TO_EMAIL ||
+    process.env.FORWARD_TO_EMAIL ||
+    process.env.SMTP_FROM ||
+    process.env.SMTP_USER
+  )?.trim();
+  return replyTo || undefined;
+}
 
 const setCors = (req: Req, res: Res) => {
   const origin = (req.headers?.origin as string | undefined) ?? "*";
@@ -145,31 +155,32 @@ export default async function handler(req: Req, res: Res) {
   // Normalize by removing whitespace so pasting into Vercel env vars still works.
   const smtpPass = (process.env.SMTP_PASS || "pmcdrpsbmedxamtx").replace(/\s+/g, "");
 
-  // If SMTP password isn't configured, return an error so the frontend can fall back to mailto:
-  if (!smtpPass) {
+  // If SMTP isn't configured, return an error so the frontend can fall back to mailto:
+  if (!smtpHost || !smtpUser || !smtpPass) {
     res.status(503).json({
       ok: false,
-      error: "Email forwarding is not configured (missing SMTP_PASS).",
+      error: "Email forwarding is not configured (missing SMTP env vars).",
       missing: {
-        SMTP_PASS: true,
+        SMTP_HOST: !smtpHost,
+        SMTP_USER: !smtpUser,
+        SMTP_PASS: !smtpPass,
       },
-      hint: "Set SMTP_PASS on Vercel with your Gmail app password.",
+      hint: "If you just added env vars on Vercel, redeploy so this function picks them up.",
     });
     return;
   }
 
   const transporter = nodemailer.createTransport({
-    service: "gmail",
+    host: smtpHost,
+    port: smtpPort,
+    secure: smtpPort === 465,
     auth: {
       user: smtpUser,
       pass: smtpPass,
     },
-    connectionTimeout: 8000,
-    greetingTimeout: 8000,
-    socketTimeout: 8000,
   });
 
-  const from = process.env.SMTP_FROM?.trim() || `"Supermarket Careers" <${smtpUser}>`;
+  const from = process.env.SMTP_FROM?.trim() || smtpUser;
   const safeApplicationId = applicationId ? String(applicationId).trim() : "";
   const supabase = createSupabaseServerClient();
 

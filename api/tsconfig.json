@@ -1,0 +1,1 @@
+{\n  "compilerOptions": {\n    "target": "ES2020",\n    "module": "CommonJS",\n    "moduleResolution": "node",\n    "esModuleInterop": true,\n    "strict": false,\n    "skipLibCheck": true\n  },\n  "include": ["./**/*.ts"]\n}\n
