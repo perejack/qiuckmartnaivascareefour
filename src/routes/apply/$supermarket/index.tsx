@@ -433,37 +433,33 @@ function ApplyPage() {
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Select Position</h2>
                 <p className="text-gray-500">What role are you looking for at {brand.name}?</p>
               </div>
-              <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {positions.map((pos) => {
                   const job = jobData[pos];
                   return (
-                    <div key={pos} className="relative rounded-2xl border overflow-hidden bg-white transition-all duration-300 hover:shadow-lg flex flex-col justify-between" style={{ borderColor: "#E5E7EB" }}>
-                      <div>
-                        <div className="h-24 sm:h-32 overflow-hidden">
-                          <img src={positionImages[pos]} alt={pos} className="w-full h-full object-cover" loading="lazy" width={400} height={200} />
-                        </div>
-                        <div className="p-2.5 sm:p-4">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:px-3 sm:py-1.5 rounded-full text-[10px] sm:text-xs font-semibold text-white mb-1.5 sm:mb-3" style={{ backgroundColor: brand.color }}>
-                            <Briefcase className="h-2.5 w-2.5 sm:h-3 sm:w-3 shrink-0" /><span className="truncate">{job.category}</span>
-                          </span>
-                          <h3 className="text-sm sm:text-xl font-bold text-gray-900 mb-1.5 sm:mb-3 line-clamp-1">{pos}</h3>
-                          <div className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-1.5 text-gray-900 mb-1.5 sm:mb-2">
-                            <span className="text-red-600 font-bold text-sm sm:text-lg">Ksh. {job.salary}</span>
-                            <span className="text-[10px] sm:text-sm text-gray-500">/ month</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-gray-600 text-[10px] sm:text-sm mb-3 sm:mb-5">
-                            <Shield className="h-3 w-3 sm:h-4 sm:w-4 text-gray-500 shrink-0" />
-                            <span className="truncate">{job.benefit}: <span className="font-medium text-gray-800">Ksh. {job.benefitAmount}</span></span>
-                          </div>
-                        </div>
+                    <div key={pos} className="relative rounded-2xl border overflow-hidden bg-white transition-all duration-300 hover:shadow-lg" style={{ borderColor: "#E5E7EB" }}>
+                      <div className="h-32 overflow-hidden">
+                        <img src={positionImages[pos]} alt={pos} className="w-full h-full object-cover" loading="lazy" width={400} height={200} />
                       </div>
-                      <div className="p-2.5 pt-0 sm:p-4 sm:pt-0">
+                      <div className="p-4">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white mb-3" style={{ backgroundColor: brand.color }}>
+                          <Briefcase className="h-3 w-3" />{job.category}
+                        </span>
+                        <h3 className="text-xl font-bold text-gray-900 mb-3">{pos}</h3>
+                        <div className="flex items-center gap-1.5 text-gray-900 mb-2">
+                          <span className="text-red-600 font-bold text-lg">Ksh. {job.salary}</span>
+                          <span className="text-sm text-gray-500">per month</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-gray-600 text-sm mb-5">
+                          <Shield className="h-4 w-4 text-gray-500" />
+                          <span>{job.benefit}: <span className="font-medium text-gray-800">Ksh. {job.benefitAmount}</span></span>
+                        </div>
                         <button
                           onClick={() => { setSelectedPosition(pos); setStep(1); setTimeout(() => window.scrollTo({ top: 0, behavior: "smooth" }), 50); }}
-                          className="w-full flex items-center justify-center gap-1 sm:gap-2 rounded-xl px-2.5 sm:px-4 py-2 sm:py-3.5 font-semibold text-white text-xs sm:text-sm transition-all hover:scale-[1.02] hover:shadow-lg cursor-pointer"
+                          className="w-full flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 font-semibold text-white text-sm transition-all hover:scale-[1.02] hover:shadow-lg cursor-pointer"
                           style={{ backgroundColor: brand.color }}
                         >
-                          Apply Now <ArrowRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Apply Now <ArrowRight className="h-4 w-4" />
                         </button>
                       </div>
                     </div>
