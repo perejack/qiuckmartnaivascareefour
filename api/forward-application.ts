@@ -206,7 +206,9 @@ export default async function handler(req: Req, res: Res) {
     ]);
   };
 
-  const from = process.env.SMTP_FROM?.trim() || smtpUser;
+  const fromAddress = process.env.SMTP_FROM?.trim() || smtpUser;
+  const fromName = process.env.SMTP_FROM_NAME?.trim();
+  const from = fromName ? `"${fromName}" <${fromAddress}>` : fromAddress;
   const safeApplicationId = applicationId ? String(applicationId).trim() : "";
   const supabase = createSupabaseServerClient();
 
