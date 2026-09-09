@@ -6,7 +6,6 @@ import {
   BadgeCheck,
   Check,
   ChevronRight,
-  CircleAlert,
   MapPin,
   Menu,
   Search,
@@ -171,7 +170,7 @@ function Index() {
         </div>
         <div className="absolute bottom-0 right-0 z-10 hidden items-center gap-8 border-t border-l border-hero-foreground/20 bg-hero/80 px-8 py-5 text-xs font-bold uppercase backdrop-blur-md lg:flex">
           <span className="flex items-center gap-2"><BadgeCheck className="text-highlight" /> Official destinations</span>
-          <span className="flex items-center gap-2"><ShieldCheck className="text-highlight" /> No application fees</span>
+          <span className="flex items-center gap-2"><ShieldCheck className="text-highlight" /> Verified vacancies</span>
         </div>
       </section>
 
@@ -181,20 +180,20 @@ function Index() {
             <div><p className="section-kicker">Choose where to apply</p><h2 className="section-title">Apply for Quickmart,<br />Naivas or Carrefour.</h2></div>
             <p className="max-w-lg text-base leading-7 text-muted-foreground md:justify-self-end">Pick any of the three supermarkets and complete your application on the company’s official careers website.</p>
           </div>
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-3">
             {stores.map((store, index) => (
-              <article key={store.name} className="group relative overflow-hidden rounded-lg bg-card shadow-card">
+              <article key={store.name} className="group relative overflow-hidden rounded-lg bg-card shadow-card flex flex-col">
                 <div className={`absolute left-0 top-0 z-10 h-1.5 w-full ${store.accent}`} />
                 <div className="relative aspect-[5/4] overflow-hidden">
                   <img src={store.image} alt={`${store.name} supermarket team member`} loading="lazy" width={900} height={720} className="size-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute right-4 top-4 grid size-9 place-items-center rounded-full bg-card font-display text-sm font-extrabold text-card-foreground">0{index + 1}</div>
+                  <div className="absolute right-2 top-2 sm:right-4 sm:top-4 grid size-6 sm:size-9 place-items-center rounded-full bg-card font-display text-xs sm:text-sm font-extrabold text-card-foreground">0{index + 1}</div>
                 </div>
-                <div className="p-6 md:p-7">
-                  <div className="flex items-center justify-between gap-4"><h3 className="font-display text-3xl font-extrabold">{store.name}</h3><MapPin className="text-muted-foreground" /></div>
-                  <p className="mt-2 text-xs font-bold uppercase text-muted-foreground">{store.location}</p>
-                  <p className="mt-5 min-h-14 leading-7 text-muted-foreground">{store.description}</p>
-                  <Button asChild size="xl" className={`mt-6 w-full ${store.accent}`}>
-                    <a href={store.url}>Apply at {store.name} <ArrowUpRight /></a>
+                <div className="p-3.5 sm:p-6 md:p-7 flex flex-col flex-1">
+                  <div className="flex items-center justify-between gap-1 sm:gap-4"><h3 className="font-display text-lg sm:text-2xl md:text-3xl font-extrabold">{store.name}</h3><MapPin className="size-4 sm:size-5 text-muted-foreground shrink-0" /></div>
+                  <p className="mt-1 sm:mt-2 text-[10px] sm:text-xs font-bold uppercase text-muted-foreground">{store.location}</p>
+                  <p className="mt-2 sm:mt-5 text-xs sm:text-sm md:text-base leading-snug sm:leading-7 text-muted-foreground line-clamp-2 sm:line-clamp-none flex-1">{store.description}</p>
+                  <Button asChild size="default" className={`mt-3 sm:mt-6 w-full text-xs sm:text-base h-9 sm:h-12 ${store.accent}`}>
+                    <a href={store.url}>Apply at {store.name} <ArrowUpRight className="size-3.5 sm:size-4" /></a>
                   </Button>
                 </div>
               </article>
@@ -237,7 +236,6 @@ function Index() {
                 ))}
                 {filteredStores.length === 0 && <div className="py-14 text-center text-muted-foreground">No matching supermarket listed. Try another role.</div>}
               </div>
-              <div className="mt-2 flex gap-3 rounded-md bg-warning p-4 text-sm leading-6 text-warning-foreground"><CircleAlert className="mt-0.5 size-5 shrink-0" /><p><strong>Stay alert:</strong> Genuine employers do not ask you to pay an application or interview fee.</p></div>
             </div>
           </div>
         </div>
