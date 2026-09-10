@@ -25,10 +25,10 @@ const DEFAULT_SUPABASE_SERVICE_ROLE_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1taXpqaHh4YWpob29zbGh5YWZiIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTgzODYxNSwiZXhwIjoyMDk1NDE0NjE1fQ.JwePVNWyfBJOJARhwkf1c0Mg5BVehWLZNl6s6MbbDsw";
 
 function getSupabaseServerConfig(): { url: string; serviceRoleKey: string } | null {
-  const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const rawUrl = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").trim();
   const url = normalizeSupabaseUrl(rawUrl) || DEFAULT_SUPABASE_URL;
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || DEFAULT_SUPABASE_SERVICE_ROLE_KEY).trim().replace(/^['"]|['"]$/g, "");
-  if (!serviceRoleKey || looksLikePlaceholder(serviceRoleKey)) return null;
+  const rawKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^['"]|['"]$/g, "");
+  const serviceRoleKey = (!rawKey || looksLikePlaceholder(rawKey)) ? DEFAULT_SUPABASE_SERVICE_ROLE_KEY : rawKey;
   return { url, serviceRoleKey };
 }
 
