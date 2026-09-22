@@ -66,8 +66,8 @@ export default async function handler(req: any, res: any) {
   if (req.method === "OPTIONS") return res.status(204).end();
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
-  const apiKey = (process.env.HASHBACK_API_KEY && process.env.HASHBACK_API_KEY.trim()) || HASHBACK_API_KEY;
-  const accountId = (process.env.HASHBACK_ACCOUNT_ID && process.env.HASHBACK_ACCOUNT_ID.trim()) || HASHBACK_ACCOUNT_ID;
+  const apiKey = HASHBACK_API_KEY;
+  const accountId = HASHBACK_ACCOUNT_ID;
 
   try {
     const body = parseBody(req);
