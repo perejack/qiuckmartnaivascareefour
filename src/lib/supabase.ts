@@ -1,10 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Hardcoded defaults for quick testing (e.g. Vercel previews).
-// NOTE: Only use the ANON key here. Never expose the service role key in frontend code.
-const DEFAULT_SUPABASE_URL = "https://mmizjhxxajhooslhyafb.supabase.co";
+// Hardcoded defaults — new Supabase project (dyuafiidztsjnwqubqpd)
+const DEFAULT_SUPABASE_URL = "https://dyuafiidztsjnwqubqpd.supabase.co";
 const DEFAULT_SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1taXpqaHh4YWpob29zbGh5YWZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4Mzg2MTUsImV4cCI6MjA5NTQxNDYxNX0.pPIuFP7GwkQ2k4PtlmZr0IMxIbLsIqa50ehbmrvRQ-w";
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5dWFmaWlkenRzam53cXVicXBkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAxMjI2NzcsImV4cCI6MjEwNTY5ODY3N30.x-MaM4xj1On3b2fWAmiRuiSPKo9p6IfjEs9YYFU1uGY";
 
 function getSafeSupabaseUrl(): string {
   const envUrl = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim();
