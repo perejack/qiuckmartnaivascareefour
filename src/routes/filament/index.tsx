@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
@@ -6,7 +6,7 @@ import {
   Users, Download, Search, ChevronLeft, ChevronRight,
   RefreshCw, Calendar, Phone, Briefcase, MapPin,
   Clock, CheckCircle2, Filter, X,
-  ArrowUpDown, FileText, Sheet,
+  ArrowUpDown, FileText, Sheet, MessageCircle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/filament/")({
@@ -85,8 +85,8 @@ async function exportPDF(data) {
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.text(`Generated: ${new Date().toLocaleString("en-KE")}  |  Total: ${data.length}`, pageW - margin - 240, 32);
-  const colWidths = [100, 85, 90, 80, 70, 85, 70, 60];
-  const colLabels = ["Name","Phone","Position","Interview Date","Interview Time","Supermarket","Payment","Fee (KES)"];
+  const colWidths = [95, 80, 80, 85, 75, 65, 80, 55];
+  const colLabels = ["Name","Phone","WhatsApp","Position","Interview Date","Interview Time","Supermarket","Fee (KES)"];
   let y = 70;
   const drawRow = (row, isHeader, rowIdx) => {
     if (y > pageH - 60) { doc.addPage(); y = margin; }
@@ -113,10 +113,10 @@ async function exportPDF(data) {
   };
   drawRow(colLabels, true, -1);
   data.forEach((a, i) => drawRow([
-    a.full_name ?? "—", a.phone ?? "—", a.position ?? "—",
+    a.full_name ?? "—", a.phone ?? "—", a.whatsapp_number ?? "—", a.position ?? "—",
     a.interview_date ? formatDate(a.interview_date) : "—",
     a.interview_time ?? "—", a.supermarket ?? "—",
-    a.payment_status ?? "—", String(a.processing_fee ?? "—"),
+    String(a.processing_fee ?? "—"),
   ], false, i));
   doc.save(`applicants_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
@@ -154,7 +154,7 @@ function AdminDashboard() {
         .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
       if (debouncedSearch.trim()) {
         const s = `%${debouncedSearch.trim()}%`;
-        q = q.or(`full_name.ilike.${s},phone.ilike.${s},email.ilike.${s},application_id.ilike.${s},position.ilike.${s}`);
+        q = q.or(`full_name.ilike.${s},phone.ilike.${s},whatsapp_number.ilike.${s},email.ilike.${s},application_id.ilike.${s},position.ilike.${s}`);
       }
       if (filterSupermarket) q = q.eq("supermarket", filterSupermarket);
       if (filterPosition) q = q.ilike("position", `%${filterPosition}%`);
@@ -322,7 +322,7 @@ function AdminDashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-800/80">
-                      {["#","Name & Contact","Position & Supermarket","Interview","Location","Status","Fee"].map((h) => (
+                      {["#","Name & Contact","WhatsApp","Position & Supermarket","Interview","Location","Status","Fee"].map((h) => (
                         <th key={h} className="text-left px-4 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
@@ -341,6 +341,21 @@ function AdminDashboard() {
                               <Phone className="h-3 w-3" />{a.phone ?? "—"}
                             </a>
                             {a.email && <p className="text-xs text-slate-400 mt-0.5 truncate max-w-[180px]">{a.email}</p>}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            {a.whatsapp_number ? (
+                              <a
+                                href={`https://wa.me/${a.whatsapp_number.replace(/\D/g, "").replace(/^0/, "254")}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-800/60 hover:bg-emerald-500/20 transition-colors"
+                              >
+                                <MessageCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                {a.whatsapp_number}
+                              </a>
+                            ) : (
+                              <span className="text-slate-500 text-xs">—</span>
+                            )}
                           </td>
                           <td className="px-4 py-3.5">
                             <p className="font-semibold text-white">{a.position ?? "—"}</p>
@@ -393,7 +408,21 @@ function AdminDashboard() {
                       <div><p className="text-slate-500 mb-0.5">Position</p><p className="text-white font-semibold">{a.position ?? "—"}</p></div>
                       <div><p className="text-slate-500 mb-0.5">Supermarket</p><p className="text-white font-semibold">{a.supermarket ?? "—"}</p></div>
                       <div><p className="text-slate-500 mb-0.5">Phone</p><a href={`tel:${a.phone}`} className="text-cyan-400 font-semibold">{a.phone ?? "—"}</a></div>
+                      <div>
+                        <p className="text-slate-500 mb-0.5">WhatsApp</p>
+                        {a.whatsapp_number ? (
+                          <a
+                            href={`https://wa.me/${a.whatsapp_number.replace(/\D/g, "").replace(/^0/, "254")}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-emerald-400 font-semibold hover:underline"
+                          >
+                            <MessageCircle className="h-3 w-3" />{a.whatsapp_number}
+                          </a>
+                        ) : <span className="text-slate-500">—</span>}
+                      </div>
                       <div><p className="text-slate-500 mb-0.5">Fee</p><p className="text-emerald-300 font-bold">KES {a.processing_fee ?? "—"}</p></div>
+                      <div><p className="text-slate-500 mb-0.5">Location</p><p className="text-slate-300 font-medium">{a.location ?? "—"}</p></div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {a.interview_date && (

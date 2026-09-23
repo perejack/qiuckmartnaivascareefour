@@ -290,7 +290,7 @@ function ApplyPage() {
   const canProceed = () => {
     switch (step) {
       case 0: return !!selectedPosition;
-      case 1: return !!(fullName && phone && location && startTime && willingToTrain && (!email.trim() || emailValidation.valid));
+      case 1: return !!(fullName && phone && whatsappNumber && location && startTime && willingToTrain && (!email.trim() || emailValidation.valid));
       case 2: return !!(workType && interviewMode && employmentType && salary && education && experience);
       case 5: return !!(selectedDate && selectedTime && contactMethod && contactValue);
       case 6: return !!(mpesaNumber && mpesaNumber.replace(/\D/g, "").length >= 9);
@@ -484,7 +484,7 @@ function ApplyPage() {
                   { label: "Full Name", value: fullName, set: setFullName, icon: User, placeholder: "Enter your full name", required: true },
                   { label: "Email Address", value: email, set: setEmail, icon: Mail, placeholder: "your.email@example.com", required: false },
                   { label: "Phone Number", value: phone, set: setPhone, icon: Phone, placeholder: "0712 345 678", required: true },
-                  { label: "WhatsApp Number (optional)", value: whatsappNumber, set: setWhatsappNumber, icon: MessageCircle, placeholder: "0712 345 678", required: false },
+                  { label: "WhatsApp Number", value: whatsappNumber, set: setWhatsappNumber, icon: MessageCircle, placeholder: "0712 345 678", required: true },
                   { label: "Where do you live?", value: location, set: setLocation, icon: MapPin, placeholder: "Nairobi, Westlands", required: true },
                 ].map((field) => (
                   <div key={field.label}>
