@@ -27,36 +27,42 @@ function parseBody(req: { body?: unknown }): Record<string, unknown> {
 
 function mapHashbackStatus(data: Record<string, unknown>): "paid" | "failed" | "pending" {
   const resultCode = String(data.ResultCode ?? data.resultCode ?? data.result_code ?? "").trim();
-  const responseCode = String(data.ResponseCode ?? data.responseCode ?? data.response_code ?? "").trim();
   const resultDesc = String(data.ResultDesc ?? data.resultDesc ?? data.message ?? "").toLowerCase();
   const status = String(data.status ?? data.Status ?? "").toLowerCase();
 
-  // Success cases
+  // ── Explicit success ────────────────────────────────────────────────────────
   if (
     resultCode === "0" ||
     status === "success" ||
     status === "completed" ||
     status === "paid" ||
     resultDesc.includes("success") ||
-    resultDesc.includes("processed successfully")
+    resultDesc.includes("processed successfully") ||
+    resultDesc.includes("accepted for processing")
   ) {
     return "paid";
   }
 
-  // Failure cases
-  if (
-    (resultCode !== "" && resultCode !== "0") ||
+  // ── Explicit failure — only flag as failed when the description is conclusive
+  const isConclusiveFailure =
+    resultDesc.includes("cancel") ||
+    resultDesc.includes("insufficient") ||
+    resultDesc.includes("declined") ||
+    resultDesc.includes("wrong pin") ||
+    resultDesc.includes("invalid pin") ||
+    resultDesc.includes("user cannot be reached") ||
+    resultDesc.includes("timed out") ||
+    resultDesc.includes("timeout") ||
+    resultDesc.includes("failed") ||
     status === "failed" ||
     status === "cancelled" ||
-    status === "canceled" ||
-    resultDesc.includes("cancel") ||
-    resultDesc.includes("fail") ||
-    resultDesc.includes("declined") ||
-    resultDesc.includes("insufficient")
-  ) {
+    status === "canceled";
+
+  if (isConclusiveFailure) {
     return "failed";
   }
 
+  // ── Everything else (including non-zero codes while still processing) ───────
   return "pending";
 }
 

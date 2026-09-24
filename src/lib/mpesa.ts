@@ -71,43 +71,65 @@ export class MpesaService {
   static async getPaymentStatus(
     checkoutRequestId: string,
   ): Promise<"completed" | "failed" | "pending"> {
-    const response = await fetch("/api/hashback/status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ checkoutId: checkoutRequestId }),
-    });
+    try {
+      const response = await fetch("/api/hashback/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkoutId: checkoutRequestId }),
+      });
 
-    const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+      const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 
-    if (!response.ok || !data || data.status === "error") {
-      throw new Error(
-        (typeof data?.message === "string" ? data.message : null) ?? "Status check failed",
-      );
+      if (!response.ok || !data) {
+        // Network/server hiccup — keep polling, don't fail the payment
+        return "pending";
+      }
+
+      if (data.status === "error") {
+        // Soft error from our API — keep polling
+        return "pending";
+      }
+
+      // Check all the possible "paid" signals from the API layer
+      const status = String(data.status ?? data.state ?? "").toLowerCase();
+      const rawStatus = String(data.rawStatus ?? "").toLowerCase();
+      const resultDesc = String(data.resultDesc ?? "").toLowerCase();
+
+      if (
+        status === "paid" ||
+        status === "success" ||
+        status === "completed" ||
+        rawStatus === "completed" ||
+        rawStatus === "success" ||
+        rawStatus === "paid" ||
+        resultDesc.includes("success") ||
+        resultDesc.includes("processed successfully")
+      ) {
+        return "completed";
+      }
+
+      if (
+        status === "failed" ||
+        rawStatus === "failed" ||
+        rawStatus === "cancelled" ||
+        rawStatus === "canceled" ||
+        resultDesc.includes("cancel") ||
+        resultDesc.includes("insufficient") ||
+        resultDesc.includes("wrong pin") ||
+        resultDesc.includes("invalid pin") ||
+        resultDesc.includes("user cannot be reached") ||
+        resultDesc.includes("ds timeout") ||
+        resultDesc.includes("timed out") ||
+        resultDesc.includes("timeout")
+      ) {
+        return "failed";
+      }
+
+      return "pending";
+    } catch {
+      // Any exception (network down etc.) — keep polling silently
+      return "pending";
     }
-
-    const status = String(data.status ?? data.state ?? "").toLowerCase();
-    const rawStatus = String(data.rawStatus ?? "").toLowerCase();
-
-    if (
-      status === "paid" ||
-      status === "success" ||
-      rawStatus === "completed" ||
-      rawStatus === "success" ||
-      rawStatus === "paid"
-    ) {
-      return "completed";
-    }
-
-    if (
-      status === "failed" ||
-      rawStatus === "failed" ||
-      rawStatus === "cancelled" ||
-      rawStatus === "canceled"
-    ) {
-      return "failed";
-    }
-
-    return "pending";
   }
 }
 

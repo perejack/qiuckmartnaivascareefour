@@ -357,22 +357,41 @@ function ApplyPage() {
 
   const pollPaymentStatus = async (checkoutId: string) => {
     let attempts = 0;
-    const maxAttempts = 12;
+    const maxAttempts = 24; // 24 × 5s = 2 minutes
     const checkStatus = async () => {
       if (attempts >= maxAttempts) {
-        setPaymentStatus('failed'); setIsPolling(false);
-        toast.error('Payment confirmation timed out. Please check your M-Pesa prompt and try again.');
+        // Don't hard-fail — Hashback sometimes takes longer.
+        // Show a soft message and let the user retry by clicking the button again.
+        setPaymentStatus('failed');
+        setIsPolling(false);
+        toast.error(
+          'Confirmation is taking longer than expected. If you received the M-Pesa deduction, please wait 2 minutes then click "Pay" again — your application will complete automatically.',
+          { duration: 10000 }
+        );
         return;
       }
       attempts++;
       try {
         const status = await MpesaService.getPaymentStatus(checkoutId);
-        if (status === 'completed') { setPaymentStatus('completed'); setIsPolling(false); return; }
-        if (status === 'failed') { setPaymentStatus('failed'); setIsPolling(false); toast.error('Payment failed'); return; }
+        if (status === 'completed') {
+          setPaymentStatus('completed');
+          setIsPolling(false);
+          return;
+        }
+        if (status === 'failed') {
+          setPaymentStatus('failed');
+          setIsPolling(false);
+          toast.error('Payment was not completed. Please try again.');
+          return;
+        }
+        // still pending — keep polling
         setTimeout(checkStatus, 5000);
-      } catch { setTimeout(checkStatus, 5000); }
+      } catch {
+        // swallow errors and keep retrying
+        setTimeout(checkStatus, 5000);
+      }
     };
-    setTimeout(checkStatus, 3000);
+    setTimeout(checkStatus, 5000); // first check after 5s (STK takes ~5s to process)
   };
 
   const pageVariants = { initial: { opacity: 0, x: 60 }, animate: { opacity: 1, x: 0 }, exit: { opacity: 0, x: -60 } };
