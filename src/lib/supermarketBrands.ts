@@ -41,7 +41,7 @@ export const supermarketData: Record<string, SupermarketBrand> = {
     gradient: "from-green-50 to-teal-50",
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ8718MLGwQuQ8S3oiQpo-Nvou56-rBk8OmRyjIke8R-0VkH2IC1j8yeIE&s=10",
-    processingFee: 150,
+    processingFee: 158,
   },
 };
 
