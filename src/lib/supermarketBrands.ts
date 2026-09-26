@@ -15,7 +15,7 @@ export const supermarketData: Record<string, SupermarketBrand> = {
     gradient: "from-red-50 to-rose-50",
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRJBpIQCnYaXsDbJMWUazSeLBMI0wdWX2WOYHS4BWdhtZXRAmsnKsurFY4&s=10",
-    processingFee: 10,
+    processingFee: 160,
   },
   naivas: {
     name: "Naivas",
@@ -23,7 +23,7 @@ export const supermarketData: Record<string, SupermarketBrand> = {
     lightBg: "#F0FFF4",
     gradient: "from-green-50 to-emerald-50",
     image: "https://thesharpdaily.com/wp-content/uploads/Naivas.jpg",
-    processingFee: 10,
+    processingFee: 150,
   },
   carrefour: {
     name: "Carrefour",
@@ -32,7 +32,7 @@ export const supermarketData: Record<string, SupermarketBrand> = {
     gradient: "from-blue-50 to-indigo-50",
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT5WgjjYd8DlNlZOHOWQ8aB9ol0Co9wtz2UvMZAd1LOk5N6ChFtC6EnLOw&s=10",
-    processingFee: 10,
+    processingFee: 140,
   },
   cleanshelf: {
     name: "Cleanshelf",
@@ -41,7 +41,7 @@ export const supermarketData: Record<string, SupermarketBrand> = {
     gradient: "from-green-50 to-teal-50",
     image:
       "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ8718MLGwQuQ8S3oiQpo-Nvou56-rBk8OmRyjIke8R-0VkH2IC1j8yeIE&s=10",
-    processingFee: 10,
+    processingFee: 145,
   },
 };
 
