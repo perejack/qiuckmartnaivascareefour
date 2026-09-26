@@ -844,6 +844,19 @@ function ApplyPage() {
                       <Loader2 className="h-5 w-5 animate-spin" style={{ color: brand.color }} />
                       <span className="text-sm font-semibold" style={{ color: brand.color }}>Waiting for M-Pesa confirmation...</span>
                     </div>
+                    {isPolling && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPaymentStatus('completed');
+                          setIsPolling(false);
+                        }}
+                        className="mt-1 text-xs font-semibold underline underline-offset-2 text-left"
+                        style={{ color: brand.color }}
+                      >
+                        ✓ I Have Already Paid — Click to Continue
+                      </button>
+                    )}
                   </motion.div>
                 )}
                 {paymentStatus === 'failed' && (
