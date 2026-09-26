@@ -44,6 +44,8 @@ function mapHashbackStatus(data: Record<string, unknown>): "paid" | "failed" | "
   }
 
   // ── Explicit failure — only flag as failed when the description is conclusive
+  // NOTE: Do NOT include generic "failed" — Hashback returns "Transaction status check failed"
+  // for in-progress transactions, which would prematurely mark valid payments as failed.
   const isConclusiveFailure =
     resultDesc.includes("cancel") ||
     resultDesc.includes("insufficient") ||
@@ -52,9 +54,8 @@ function mapHashbackStatus(data: Record<string, unknown>): "paid" | "failed" | "
     resultDesc.includes("invalid pin") ||
     resultDesc.includes("user cannot be reached") ||
     resultDesc.includes("timed out") ||
-    resultDesc.includes("timeout") ||
-    resultDesc.includes("failed") ||
-    status === "failed" ||
+    resultDesc.includes("transaction timed out") ||
+    (status === "failed" && (resultDesc.includes("cancel") || resultDesc.includes("insufficient") || resultDesc.includes("wrong pin") || resultDesc.includes("invalid pin"))) ||
     status === "cancelled" ||
     status === "canceled";
 
@@ -102,12 +103,13 @@ export default async function handler(req: any, res: any) {
     const data = (await hashbackRes.json().catch(() => null)) as Record<string, unknown> | null;
 
     if (!hashbackRes.ok || !data) {
-      return res.status(hashbackRes.status || 500).json({
-        status: "error",
+      // Return pending so the client keeps polling — don't fail on transient Hashback API errors
+      return res.status(200).json({
+        status: "pending",
         message:
           (typeof data?.message === "string" ? data.message : null) ??
           (typeof data?.error === "string" ? data.error : null) ??
-          "Status check failed",
+          "Status check pending",
         raw: data,
       });
     }
@@ -132,6 +134,7 @@ export default async function handler(req: any, res: any) {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Status check failed";
-    return res.status(500).json({ status: "error", message });
+    // Return pending so polling continues — don't prematurely fail on server errors
+    return res.status(200).json({ status: "pending", message });
   }
 }
