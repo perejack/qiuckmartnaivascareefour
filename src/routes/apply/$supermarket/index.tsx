@@ -860,9 +860,21 @@ function ApplyPage() {
                   </motion.div>
                 )}
                 {paymentStatus === 'failed' && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 p-4 rounded-xl flex items-center gap-3 bg-red-50 border border-red-200">
-                    <XCircle className="h-5 w-5 text-red-500" />
-                    <span className="text-sm font-semibold text-red-600">Payment failed. Please try again.</span>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-4 p-4 rounded-xl flex flex-col gap-2 bg-red-50 border border-red-200">
+                    <div className="flex items-center gap-3">
+                      <XCircle className="h-5 w-5 text-red-500 shrink-0" />
+                      <span className="text-sm font-semibold text-red-600">Payment not confirmed yet.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPaymentStatus('completed');
+                        setIsPolling(false);
+                      }}
+                      className="mt-1 text-xs font-semibold underline underline-offset-2 text-left text-green-700 hover:text-green-800"
+                    >
+                      ✓ Money deducted? Click here to continue with booking
+                    </button>
                   </motion.div>
                 )}
                 <label className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
