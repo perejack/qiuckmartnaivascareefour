@@ -81,12 +81,12 @@ async function exportPDF(data) {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text("Paid Applicants Dashboard", margin, 32);
+  doc.text("Applicants Interview Schedule", margin, 32);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.text(`Generated: ${new Date().toLocaleString("en-KE")}  |  Total: ${data.length}`, pageW - margin - 240, 32);
-  const colWidths = [95, 80, 80, 85, 75, 65, 80, 55];
-  const colLabels = ["Name","Phone","WhatsApp","Position","Interview Date","Interview Time","Supermarket","Fee (KES)"];
+  const colWidths = [125, 95, 95, 125, 110, 95, 105];
+  const colLabels = ["Name","Phone","WhatsApp","Position","Interview Date","Interview Time","Supermarket"];
   let y = 70;
   const drawRow = (row, isHeader, rowIdx) => {
     if (y > pageH - 60) { doc.addPage(); y = margin; }
@@ -116,9 +116,8 @@ async function exportPDF(data) {
     a.full_name ?? "—", a.phone ?? "—", a.whatsapp_number ?? "—", a.position ?? "—",
     a.interview_date ? formatDate(a.interview_date) : "—",
     a.interview_time ?? "—", a.supermarket ?? "—",
-    String(a.processing_fee ?? "—"),
   ], false, i));
-  doc.save(`applicants_${new Date().toISOString().slice(0, 10)}.pdf`);
+  doc.save(`interview_schedule_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 function AdminDashboard() {
@@ -131,6 +130,7 @@ function AdminDashboard() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterSupermarket, setFilterSupermarket] = useState("");
   const [filterPosition, setFilterPosition] = useState("");
+  const [filterInterviewDate, setFilterInterviewDate] = useState("");
   const [supermarkets, setSupermarkets] = useState([]);
   const [positions, setPositions] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -144,7 +144,7 @@ function AdminDashboard() {
     return () => { if (searchRef.current) clearTimeout(searchRef.current); };
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, filterSupermarket, filterPosition]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, filterSupermarket, filterPosition, filterInterviewDate]);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -158,6 +158,7 @@ function AdminDashboard() {
       }
       if (filterSupermarket) q = q.eq("supermarket", filterSupermarket);
       if (filterPosition) q = q.ilike("position", `%${filterPosition}%`);
+      if (filterInterviewDate) q = q.eq("interview_date", filterInterviewDate);
       const { data, count, error } = await q;
       if (error) throw error;
       setApplicants(sortApplicants(data ?? []));
@@ -169,7 +170,7 @@ function AdminDashboard() {
       }
     } catch (err) { console.error("Admin fetch error:", err); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [page, debouncedSearch, filterSupermarket, filterPosition]);
+  }, [page, debouncedSearch, filterSupermarket, filterPosition, filterInterviewDate]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
@@ -179,7 +180,15 @@ function AdminDashboard() {
   const upcomingCount = applicants.filter((a) => a.interview_date && a.interview_date >= todayStr).length;
 
   const fetchAllForExport = async () => {
-    const { data, error } = await adminClient.from("applications").select("*").eq("payment_status", "completed");
+    let q = adminClient.from("applications").select("*").eq("payment_status", "completed");
+    if (debouncedSearch.trim()) {
+      const s = `%${debouncedSearch.trim()}%`;
+      q = q.or(`full_name.ilike.${s},phone.ilike.${s},whatsapp_number.ilike.${s},email.ilike.${s},application_id.ilike.${s},position.ilike.${s}`);
+    }
+    if (filterSupermarket) q = q.eq("supermarket", filterSupermarket);
+    if (filterPosition) q = q.ilike("position", `%${filterPosition}%`);
+    if (filterInterviewDate) q = q.eq("interview_date", filterInterviewDate);
+    const { data, error } = await q;
     if (error) throw error;
     return sortApplicants(data ?? []);
   };
@@ -234,13 +243,16 @@ function AdminDashboard() {
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Paid", value: totalCount, icon: Users, color: "from-cyan-500 to-blue-600" },
-            { label: "Today's Interviews", value: todayCount, icon: Calendar, color: "from-emerald-500 to-teal-600" },
+            { label: "Total Paid", value: totalCount, icon: Users, color: "from-cyan-500 to-blue-600", onClick: () => { setFilterInterviewDate(""); setFilterSupermarket(""); setFilterPosition(""); } },
+            { label: "Today's Interviews", value: todayCount, icon: Calendar, color: "from-emerald-500 to-teal-600", onClick: () => setFilterInterviewDate((prev) => (prev === todayStr ? "" : todayStr)), active: filterInterviewDate === todayStr },
             { label: "Upcoming Interviews", value: upcomingCount, icon: Clock, color: "from-violet-500 to-purple-600" },
             { label: "Supermarkets", value: supermarkets.length, icon: Briefcase, color: "from-amber-500 to-orange-600" },
           ].map((stat) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-              className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 flex flex-col gap-2 backdrop-blur-sm">
+              onClick={stat.onClick}
+              className={`rounded-2xl border bg-slate-900/60 p-4 flex flex-col gap-2 backdrop-blur-sm transition-all ${
+                stat.onClick ? "cursor-pointer hover:border-slate-600 hover:bg-slate-900/80" : ""
+              } ${stat.active ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-950/30" : "border-slate-800"}`}>
               <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
                 <stat.icon className="h-5 w-5 text-white" />
               </div>
@@ -266,9 +278,9 @@ function AdminDashboard() {
             <button onClick={() => setShowFilters((v) => !v)}
               className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border transition-all ${showFilters ? "border-cyan-500 bg-cyan-900/30 text-cyan-300" : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"}`}>
               <Filter className="h-4 w-4" />Filters
-              {(filterSupermarket || filterPosition) && (
+              {(filterSupermarket || filterPosition || filterInterviewDate) && (
                 <span className="ml-1 h-5 w-5 rounded-full bg-cyan-500 text-white text-[10px] flex items-center justify-center font-bold">
-                  {[filterSupermarket, filterPosition].filter(Boolean).length}
+                  {[filterSupermarket, filterPosition, filterInterviewDate].filter(Boolean).length}
                 </span>
               )}
             </button>
@@ -277,7 +289,7 @@ function AdminDashboard() {
           <AnimatePresence>
             {showFilters && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
                   <div>
                     <label className="text-xs text-slate-400 font-semibold mb-1.5 block">Supermarket</label>
                     <select value={filterSupermarket} onChange={(e) => setFilterSupermarket(e.target.value)}
@@ -294,10 +306,41 @@ function AdminDashboard() {
                       {positions.map((p) => <option key={p} value={p}>{p}</option>)}
                     </select>
                   </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs text-slate-400 font-semibold block">Interview Date</label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setFilterInterviewDate(todayStr)}
+                          className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
+                            filterInterviewDate === todayStr ? "bg-cyan-500 text-white font-bold" : "bg-slate-700 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          Today
+                        </button>
+                        {filterInterviewDate && (
+                          <button
+                            type="button"
+                            onClick={() => setFilterInterviewDate("")}
+                            className="text-[10px] text-rose-400 hover:text-rose-300 underline"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      type="date"
+                      value={filterInterviewDate}
+                      onChange={(e) => setFilterInterviewDate(e.target.value)}
+                      className="w-full rounded-xl bg-slate-800 border border-slate-700 focus:border-cyan-500 text-white px-3 py-2 text-sm outline-none"
+                    />
+                  </div>
                 </div>
-                {(filterSupermarket || filterPosition) && (
-                  <button onClick={() => { setFilterSupermarket(""); setFilterPosition(""); }}
-                    className="mt-2 text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2">Clear filters</button>
+                {(filterSupermarket || filterPosition || filterInterviewDate) && (
+                  <button onClick={() => { setFilterSupermarket(""); setFilterPosition(""); setFilterInterviewDate(""); }}
+                    className="mt-2 text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2">Clear all filters</button>
                 )}
               </motion.div>
             )}
