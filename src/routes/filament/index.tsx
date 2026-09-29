@@ -85,8 +85,8 @@ async function exportPDF(data) {
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
   doc.text(`Generated: ${new Date().toLocaleString("en-KE")}  |  Total: ${data.length}`, pageW - margin - 240, 32);
-  const colWidths = [125, 95, 95, 125, 110, 95, 105];
-  const colLabels = ["Name","Phone","WhatsApp","Position","Interview Date","Interview Time","Supermarket"];
+  const colWidths = [110, 85, 85, 105, 95, 95, 85, 105];
+  const colLabels = ["Name","Phone","WhatsApp","Position","Location","Interview Date","Interview Time","Supermarket"];
   let y = 70;
   const drawRow = (row, isHeader, rowIdx) => {
     if (y > pageH - 60) { doc.addPage(); y = margin; }
@@ -113,9 +113,14 @@ async function exportPDF(data) {
   };
   drawRow(colLabels, true, -1);
   data.forEach((a, i) => drawRow([
-    a.full_name ?? "—", a.phone ?? "—", a.whatsapp_number ?? "—", a.position ?? "—",
+    a.full_name ?? "—",
+    a.phone ?? "—",
+    a.whatsapp_number ?? "—",
+    a.position ?? "—",
+    a.location ?? "—",
     a.interview_date ? formatDate(a.interview_date) : "—",
-    a.interview_time ?? "—", a.supermarket ?? "—",
+    a.interview_time ?? "—",
+    a.supermarket ?? "—",
   ], false, i));
   doc.save(`interview_schedule_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
