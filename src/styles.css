@@ -72,6 +72,13 @@
   --color-naivas: var(--naivas);
   --color-quickmart: var(--quickmart);
   --color-carrefour: var(--carrefour);
+  --color-cert-navy: var(--cert-navy);
+  --color-cert-gold: var(--cert-gold);
+  --color-cert-maroon: var(--cert-maroon);
+  --color-cert-paper: var(--cert-paper);
+  --color-cert-ink: var(--cert-ink);
+  --color-cert-signature: var(--cert-signature);
+  --font-serif-cert: "Tinos", "Times New Roman", serif;
   --shadow-card: var(--shadow-card);
 }
 
@@ -107,6 +114,12 @@
   --naivas: oklch(0.54 0.17 151);
   --quickmart: oklch(0.57 0.22 27);
   --carrefour: oklch(0.48 0.17 256);
+  --cert-navy: oklch(0.28 0.08 262);
+  --cert-gold: oklch(0.82 0.15 85);
+  --cert-maroon: oklch(0.38 0.14 25);
+  --cert-paper: oklch(0.995 0.005 90);
+  --cert-ink: oklch(0.18 0.01 260);
+  --cert-signature: oklch(0.42 0.2 265);
   --shadow-card: 0 20px 50px -32px oklch(0.16 0.015 245 / 0.45);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -209,3 +222,26 @@
   html { scroll-behavior: auto; }
   *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
 }
+
+.cert-preview {
+  zoom: 1;
+}
+
+@media (max-width: 1440px) {
+  .cert-preview {
+    zoom: 0.85;
+  }
+}
+
+@media (max-width: 1024px) {
+  .cert-preview {
+    zoom: 0.62;
+  }
+}
+
+@media (max-width: 640px) {
+  .cert-preview {
+    zoom: 0.42;
+  }
+}
+
