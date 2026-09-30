@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FilamentIndexRouteImport } from './routes/filament/index'
 import { Route as ApplySupermarketIndexRouteImport } from './routes/apply/$supermarket/index'
 import { Route as ApplySupermarketConfirmationRouteImport } from './routes/apply/$supermarket/confirmation'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FilamentIndexRoute = FilamentIndexRouteImport.update({
+  id: '/filament/',
+  path: '/filament/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApplySupermarketIndexRoute = ApplySupermarketIndexRouteImport.update({
@@ -32,34 +38,47 @@ const ApplySupermarketConfirmationRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/filament/': typeof FilamentIndexRoute
   '/apply/$supermarket/confirmation': typeof ApplySupermarketConfirmationRoute
   '/apply/$supermarket/': typeof ApplySupermarketIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/filament': typeof FilamentIndexRoute
   '/apply/$supermarket/confirmation': typeof ApplySupermarketConfirmationRoute
   '/apply/$supermarket': typeof ApplySupermarketIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/filament/': typeof FilamentIndexRoute
   '/apply/$supermarket/confirmation': typeof ApplySupermarketConfirmationRoute
   '/apply/$supermarket/': typeof ApplySupermarketIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/apply/$supermarket/confirmation' | '/apply/$supermarket/'
+  fullPaths:
+    | '/'
+    | '/filament/'
+    | '/apply/$supermarket/confirmation'
+    | '/apply/$supermarket/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/apply/$supermarket/confirmation' | '/apply/$supermarket'
+  to:
+    | '/'
+    | '/filament'
+    | '/apply/$supermarket/confirmation'
+    | '/apply/$supermarket'
   id:
     | '__root__'
     | '/'
+    | '/filament/'
     | '/apply/$supermarket/confirmation'
     | '/apply/$supermarket/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  FilamentIndexRoute: typeof FilamentIndexRoute
   ApplySupermarketConfirmationRoute: typeof ApplySupermarketConfirmationRoute
   ApplySupermarketIndexRoute: typeof ApplySupermarketIndexRoute
 }
@@ -71,6 +90,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/filament/': {
+      id: '/filament/'
+      path: '/filament'
+      fullPath: '/filament/'
+      preLoaderRoute: typeof FilamentIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/apply/$supermarket/': {
@@ -92,6 +118,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  FilamentIndexRoute: FilamentIndexRoute,
   ApplySupermarketConfirmationRoute: ApplySupermarketConfirmationRoute,
   ApplySupermarketIndexRoute: ApplySupermarketIndexRoute,
 }
