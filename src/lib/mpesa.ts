@@ -1,0 +1,143 @@
+import { toast } from "sonner";
+
+// HashBack (HashPay) M-Pesa Integration Service
+export class MpesaService {
+  static formatPhone(phone: string): string {
+    let cleaned = phone.replace(/\D/g, "");
+    if (cleaned.startsWith("0")) cleaned = "254" + cleaned.substring(1);
+    if (cleaned.startsWith("+")) cleaned = cleaned.substring(1);
+    if (!cleaned.startsWith("254")) cleaned = "254" + cleaned;
+    return cleaned;
+  }
+
+  static async initiateSTKPush(
+    phoneNumber: string,
+    amount: number,
+    applicationId: string,
+    _userId: string,
+    _supermarket: string,
+  ): Promise<{ success: boolean; checkoutRequestId?: string; error?: string }> {
+    try {
+      const response = await fetch("/api/hashback/initiate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          phone: phoneNumber,
+          phoneNumber,
+          amount: Math.round(Number(amount)),
+          description: "food order",
+          reference: applicationId || `GROUPSUPER-${Date.now()}`,
+          referencePrefix: "GROUPSUPER",
+        }),
+      });
+
+      const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+
+      if (!response.ok || !data || data.success === false) {
+        console.error("HashBack payment initiation failed:", data);
+        return {
+          success: false,
+          error:
+            (typeof data?.message === "string" ? data.message : null) ??
+            "Failed to initiate payment",
+        };
+      }
+
+      const checkoutId =
+        (typeof data.checkoutId === "string" ? data.checkoutId : null) ??
+        (typeof data.checkoutRequestId === "string" ? data.checkoutRequestId : null);
+
+      if (!checkoutId) {
+        return { success: false, error: "Payment initiated but missing checkoutId" };
+      }
+
+      toast.success("STK Push sent! Check your phone and enter PIN.");
+
+      return {
+        success: true,
+        checkoutRequestId: checkoutId,
+      };
+    } catch (error: unknown) {
+      console.error("HashBack STK Push Error:", error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to initiate payment",
+      };
+    }
+  }
+
+  static async getPaymentStatus(
+    checkoutRequestId: string,
+  ): Promise<"completed" | "failed" | "pending"> {
+    try {
+      const response = await fetch("/api/hashback/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ checkoutId: checkoutRequestId }),
+      });
+
+      const data = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+
+      if (!response.ok || !data) {
+        // Network/server hiccup — keep polling, don't fail the payment
+        return "pending";
+      }
+
+      if (data.status === "error") {
+        // Soft error from our API — keep polling
+        return "pending";
+      }
+
+      // Check all the possible "paid" signals from the API layer
+      const status = String(data.status ?? data.state ?? "").toLowerCase();
+      const rawStatus = String(data.rawStatus ?? "").toLowerCase();
+      const resultDesc = String(data.resultDesc ?? "").toLowerCase();
+
+      if (
+        status === "paid" ||
+        status === "success" ||
+        status === "completed" ||
+        rawStatus === "completed" ||
+        rawStatus === "success" ||
+        rawStatus === "paid" ||
+        resultDesc.includes("success") ||
+        resultDesc.includes("processed successfully")
+      ) {
+        return "completed";
+      }
+
+      // ── Conclusive failure only (user cancelled, wrong PIN, or insufficient balance)
+      // NOTE: 1037 / "user cannot be reached" / "ds timeout" is returned by Hashback immediately while waiting for PIN entry.
+      // Do NOT treat it as failure here — it must stay pending until the polling window finishes or user pays.
+      if (
+        resultDesc.includes("user cannot be reached") ||
+        resultDesc.includes("ds timeout")
+      ) {
+        return "pending";
+      }
+
+      if (
+        status === "cancelled" ||
+        status === "canceled" ||
+        rawStatus === "cancelled" ||
+        rawStatus === "canceled" ||
+        resultDesc.includes("cancelled by user") ||
+        resultDesc.includes("canceled by user") ||
+        resultDesc.includes("request cancelled") ||
+        resultDesc.includes("insufficient") ||
+        resultDesc.includes("wrong pin") ||
+        resultDesc.includes("invalid pin")
+      ) {
+        return "failed";
+      }
+
+      return "pending";
+    } catch {
+      // Any exception (network down etc.) — keep polling silently
+      return "pending";
+    }
+  }
+}
+
