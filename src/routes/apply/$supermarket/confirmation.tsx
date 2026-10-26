@@ -101,7 +101,7 @@ function ConfirmationPage() {
     setReady(true);
 
     try {
-      const confirmedFee = Number(next.processingFee) > 0 ? Number(next.processingFee) : (brand.processingFee || 250);
+      const confirmedFee = Number(next.processingFee) > 0 ? Number(next.processingFee) : (brand.processingFee || 150);
       console.log("[Confirmation Page] payload.processingFee:", next.processingFee, "brand.processingFee:", brand.processingFee, "confirmedFee:", confirmedFee);
       trackPurchaseConversion({ applicationId: next.applicationId, value: confirmedFee, currency: "KES" });
 

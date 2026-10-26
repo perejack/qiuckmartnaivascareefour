@@ -51,7 +51,7 @@ export function trackPurchaseConversion({
   // Robust numeric conversion for value — ensures it's never 0 or NaN if a fee is expected
   const numericValue = typeof value === "number" && !isNaN(value) && value > 0 
     ? value 
-    : (Number(value) > 0 ? Number(value) : 250);
+    : (Number(value) > 0 ? Number(value) : 150);
 
   // Debug log requested to inspect exactly what value is passed at execution time
   console.log("[Conversion Tracking] applicationId:", applicationId, "processingFee (value):", numericValue, "raw:", value);
