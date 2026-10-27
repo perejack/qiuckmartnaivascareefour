@@ -33,8 +33,32 @@ function formatDate(d) {
   } catch { return d; }
 }
 
-function sortApplicants(list) {
+function formatDateTime(d) {
+  if (!d) return "—";
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    return dt.toLocaleDateString("en-KE", {
+      day: "numeric", month: "short", year: "numeric",
+    }) + " " + dt.toLocaleTimeString("en-KE", { hour: "2-digit", minute: "2-digit" });
+  } catch { return d; }
+}
+
+function sortApplicants(list, sortBy = "nearest_interview") {
   const now = new Date();
+  if (sortBy === "created_at_desc") {
+    return [...list].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+  }
+  if (sortBy === "created_at_asc") {
+    return [...list].sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime());
+  }
+  if (sortBy === "interview_date_desc") {
+    return [...list].sort((a, b) => new Date(b.interview_date || 0).getTime() - new Date(a.interview_date || 0).getTime());
+  }
+  if (sortBy === "interview_date_asc") {
+    return [...list].sort((a, b) => new Date(a.interview_date || "9999-12-31").getTime() - new Date(b.interview_date || "9999-12-31").getTime());
+  }
+  // default: nearest_interview
   const withDate = list.filter((a) => a.interview_date);
   const noDate = list.filter((a) => !a.interview_date);
   const upcoming = withDate
@@ -136,12 +160,15 @@ function AdminDashboard() {
   const [filterSupermarket, setFilterSupermarket] = useState("");
   const [filterPosition, setFilterPosition] = useState("");
   const [filterInterviewDate, setFilterInterviewDate] = useState("");
+  const [filterAppliedDate, setFilterAppliedDate] = useState("");
+  const [sortBy, setSortBy] = useState("created_at_desc");
   const [supermarkets, setSupermarkets] = useState([]);
   const [positions, setPositions] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
   const [exportingCSV, setExportingCSV] = useState(false);
   const [exportingPDF, setExportingPDF] = useState(false);
-  const [todayCount, setTodayCount] = useState(0);
+  const [todayInterviewCount, setTodayInterviewCount] = useState(0);
+  const [todayAppliedCount, setTodayAppliedCount] = useState(0);
   const [upcomingCount, setUpcomingCount] = useState(0);
   const searchRef = useRef(null);
 
@@ -151,14 +178,29 @@ function AdminDashboard() {
     return () => { if (searchRef.current) clearTimeout(searchRef.current); };
   }, [search]);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch, filterSupermarket, filterPosition, filterInterviewDate]);
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filterSupermarket, filterPosition, filterInterviewDate, filterAppliedDate, sortBy]);
 
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
     try {
       let q = adminClient.from("applications").select("*", { count: "exact" })
-        .eq("payment_status", "completed")
-        .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+        .eq("payment_status", "completed");
+
+      // Apply ordering at database level
+      if (sortBy === "created_at_desc") {
+        q = q.order("created_at", { ascending: false });
+      } else if (sortBy === "created_at_asc") {
+        q = q.order("created_at", { ascending: true });
+      } else if (sortBy === "interview_date_desc") {
+        q = q.order("interview_date", { ascending: false, nullsFirst: false });
+      } else if (sortBy === "interview_date_asc") {
+        q = q.order("interview_date", { ascending: true, nullsFirst: false });
+      }
+
+      q = q.range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
+
       if (debouncedSearch.trim()) {
         const s = `%${debouncedSearch.trim()}%`;
         q = q.or(`full_name.ilike.${s},phone.ilike.${s},whatsapp_number.ilike.${s},email.ilike.${s},application_id.ilike.${s},position.ilike.${s}`);
@@ -166,22 +208,39 @@ function AdminDashboard() {
       if (filterSupermarket) q = q.eq("supermarket", filterSupermarket);
       if (filterPosition) q = q.ilike("position", `%${filterPosition}%`);
       if (filterInterviewDate) q = q.eq("interview_date", filterInterviewDate);
+      if (filterAppliedDate) {
+        // Match applications submitted on that date (between 00:00:00 and 23:59:59.999)
+        const startOfDay = `${filterAppliedDate}T00:00:00.000Z`;
+        const endOfDay = `${filterAppliedDate}T23:59:59.999Z`;
+        q = q.gte("created_at", startOfDay).lte("created_at", endOfDay);
+      }
 
       const todayIso = new Date().toISOString().slice(0, 10);
+      const startOfTodayIso = `${todayIso}T00:00:00.000Z`;
+      const endOfTodayIso = `${todayIso}T23:59:59.999Z`;
 
-      const [{ data, count, error }, { count: tCount }, { count: uCount }, { data: allData }] = await Promise.all([
+      const [
+        { data, count, error },
+        { count: tInterviewCount },
+        { count: tAppliedCount },
+        { count: uCount },
+        { data: allData },
+      ] = await Promise.all([
         q,
         adminClient.from("applications").select("*", { count: "exact", head: true })
           .eq("payment_status", "completed").eq("interview_date", todayIso),
+        adminClient.from("applications").select("*", { count: "exact", head: true })
+          .eq("payment_status", "completed").gte("created_at", startOfTodayIso).lte("created_at", endOfTodayIso),
         adminClient.from("applications").select("*", { count: "exact", head: true })
           .eq("payment_status", "completed").gte("interview_date", todayIso),
         adminClient.from("applications").select("supermarket, position").eq("payment_status", "completed"),
       ]);
 
       if (error) throw error;
-      setApplicants(sortApplicants(data ?? []));
+      setApplicants(sortApplicants(data ?? [], sortBy));
       setTotalCount(count ?? 0);
-      setTodayCount(tCount ?? 0);
+      setTodayInterviewCount(tInterviewCount ?? 0);
+      setTodayAppliedCount(tAppliedCount ?? 0);
       setUpcomingCount(uCount ?? 0);
       if (allData) {
         setSupermarkets([...new Set(allData.map((r) => r.supermarket).filter(Boolean))].sort());
@@ -189,7 +248,7 @@ function AdminDashboard() {
       }
     } catch (err) { console.error("Admin fetch error:", err); }
     finally { setLoading(false); setRefreshing(false); }
-  }, [page, debouncedSearch, filterSupermarket, filterPosition, filterInterviewDate]);
+  }, [page, debouncedSearch, filterSupermarket, filterPosition, filterInterviewDate, filterAppliedDate, sortBy]);
 
   useEffect(() => { void fetchData(); }, [fetchData]);
 
@@ -198,6 +257,16 @@ function AdminDashboard() {
 
   const fetchAllForExport = async () => {
     let q = adminClient.from("applications").select("*").eq("payment_status", "completed");
+    if (sortBy === "created_at_desc") {
+      q = q.order("created_at", { ascending: false });
+    } else if (sortBy === "created_at_asc") {
+      q = q.order("created_at", { ascending: true });
+    } else if (sortBy === "interview_date_desc") {
+      q = q.order("interview_date", { ascending: false, nullsFirst: false });
+    } else if (sortBy === "interview_date_asc") {
+      q = q.order("interview_date", { ascending: true, nullsFirst: false });
+    }
+
     if (debouncedSearch.trim()) {
       const s = `%${debouncedSearch.trim()}%`;
       q = q.or(`full_name.ilike.${s},phone.ilike.${s},whatsapp_number.ilike.${s},email.ilike.${s},application_id.ilike.${s},position.ilike.${s}`);
@@ -205,9 +274,14 @@ function AdminDashboard() {
     if (filterSupermarket) q = q.eq("supermarket", filterSupermarket);
     if (filterPosition) q = q.ilike("position", `%${filterPosition}%`);
     if (filterInterviewDate) q = q.eq("interview_date", filterInterviewDate);
+    if (filterAppliedDate) {
+      const startOfDay = `${filterAppliedDate}T00:00:00.000Z`;
+      const endOfDay = `${filterAppliedDate}T23:59:59.999Z`;
+      q = q.gte("created_at", startOfDay).lte("created_at", endOfDay);
+    }
     const { data, error } = await q;
     if (error) throw error;
-    return sortApplicants(data ?? []);
+    return sortApplicants(data ?? [], sortBy);
   };
 
   const handleCSV = async () => {
@@ -258,18 +332,56 @@ function AdminDashboard() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Top summary stat cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Paid", value: totalCount, icon: Users, color: "from-cyan-500 to-blue-600", onClick: () => { setFilterInterviewDate(""); setFilterSupermarket(""); setFilterPosition(""); } },
-            { label: "Today's Interviews", value: todayCount, icon: Calendar, color: "from-emerald-500 to-teal-600", onClick: () => setFilterInterviewDate((prev) => (prev === todayStr ? "" : todayStr)), active: filterInterviewDate === todayStr },
-            { label: "Upcoming Interviews", value: upcomingCount, icon: Clock, color: "from-violet-500 to-purple-600" },
-            { label: "Supermarkets", value: supermarkets.length, icon: Briefcase, color: "from-amber-500 to-orange-600" },
+            {
+              label: "Total Paid",
+              value: totalCount,
+              icon: Users,
+              color: "from-cyan-500 to-blue-600",
+              onClick: () => {
+                setFilterInterviewDate("");
+                setFilterAppliedDate("");
+                setFilterSupermarket("");
+                setFilterPosition("");
+              },
+              active: !filterInterviewDate && !filterAppliedDate && !filterSupermarket && !filterPosition,
+            },
+            {
+              label: "Applied Today",
+              value: todayAppliedCount,
+              icon: Calendar,
+              color: "from-blue-500 to-indigo-600",
+              onClick: () => {
+                setFilterInterviewDate("");
+                setFilterAppliedDate((prev) => (prev === todayStr ? "" : todayStr));
+              },
+              active: filterAppliedDate === todayStr,
+            },
+            {
+              label: "Today's Interviews",
+              value: todayInterviewCount,
+              icon: Clock,
+              color: "from-emerald-500 to-teal-600",
+              onClick: () => {
+                setFilterAppliedDate("");
+                setFilterInterviewDate((prev) => (prev === todayStr ? "" : todayStr));
+              },
+              active: filterInterviewDate === todayStr,
+            },
+            {
+              label: "Upcoming Interviews",
+              value: upcomingCount,
+              icon: Briefcase,
+              color: "from-amber-500 to-orange-600",
+            },
           ].map((stat) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
               onClick={stat.onClick}
               className={`rounded-2xl border bg-slate-900/60 p-4 flex flex-col gap-2 backdrop-blur-sm transition-all ${
                 stat.onClick ? "cursor-pointer hover:border-slate-600 hover:bg-slate-900/80" : ""
-              } ${stat.active ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-950/30" : "border-slate-800"}`}>
+              } ${stat.active ? "border-cyan-500 ring-2 ring-cyan-500/20 bg-cyan-950/30" : "border-slate-800"}`}>
               <div className={`h-9 w-9 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
                 <stat.icon className="h-5 w-5 text-white" />
               </div>
@@ -279,6 +391,106 @@ function AdminDashboard() {
           ))}
         </div>
 
+        {/* Quick Date Presets Bar */}
+        <div className="flex flex-wrap items-center gap-2 p-3 rounded-2xl border border-slate-800 bg-slate-900/40 backdrop-blur-sm">
+          <span className="text-xs font-semibold text-slate-400 flex items-center gap-1.5 mr-1">
+            <Calendar className="h-3.5 w-3.5 text-cyan-400" />
+            Quick View:
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              setFilterAppliedDate(todayStr);
+              setFilterInterviewDate("");
+              setSortBy("created_at_desc");
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              filterAppliedDate === todayStr
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+            }`}
+          >
+            <span>📥 Applied Today</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 font-mono">
+              {todayAppliedCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              const y = new Date();
+              y.setDate(y.getDate() - 1);
+              const yStr = y.toISOString().slice(0, 10);
+              setFilterAppliedDate(yStr);
+              setFilterInterviewDate("");
+              setSortBy("created_at_desc");
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              (() => {
+                const y = new Date();
+                y.setDate(y.getDate() - 1);
+                return filterAppliedDate === y.toISOString().slice(0, 10);
+              })()
+                ? "bg-blue-600 text-white shadow-lg shadow-blue-500/20"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+            }`}
+          >
+            Applied Yesterday
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilterInterviewDate(todayStr);
+              setFilterAppliedDate("");
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 ${
+              filterInterviewDate === todayStr
+                ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+            }`}
+          >
+            <span>🎯 Today's Interviews</span>
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20 font-mono">
+              {todayInterviewCount}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilterAppliedDate("");
+              setFilterInterviewDate("");
+              setSortBy("created_at_desc");
+            }}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+              !filterAppliedDate && !filterInterviewDate && sortBy === "created_at_desc"
+                ? "bg-cyan-600 text-white shadow-lg shadow-cyan-500/20"
+                : "bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700"
+            }`}
+          >
+            All Applications (Newest First)
+          </button>
+
+          {(filterAppliedDate || filterInterviewDate || filterSupermarket || filterPosition) && (
+            <button
+              type="button"
+              onClick={() => {
+                setFilterAppliedDate("");
+                setFilterInterviewDate("");
+                setFilterSupermarket("");
+                setFilterPosition("");
+                setSearch("");
+              }}
+              className="ml-auto text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 hover:underline"
+            >
+              <X className="h-3.5 w-3.5" /> Reset Filters
+            </button>
+          )}
+        </div>
+
+        {/* Search & Filter Toolbar */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 space-y-3 backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
@@ -292,21 +504,38 @@ function AdminDashboard() {
                 </button>
               )}
             </div>
-            <button onClick={() => setShowFilters((v) => !v)}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border transition-all ${showFilters ? "border-cyan-500 bg-cyan-900/30 text-cyan-300" : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"}`}>
-              <Filter className="h-4 w-4" />Filters
-              {(filterSupermarket || filterPosition || filterInterviewDate) && (
-                <span className="ml-1 h-5 w-5 rounded-full bg-cyan-500 text-white text-[10px] flex items-center justify-center font-bold">
-                  {[filterSupermarket, filterPosition, filterInterviewDate].filter(Boolean).length}
-                </span>
-              )}
-            </button>
+
+            {/* Sort Dropdown */}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="rounded-xl bg-slate-800 border border-slate-700 focus:border-cyan-500 text-white px-3 py-2.5 text-xs font-semibold outline-none transition-all cursor-pointer"
+                >
+                  <option value="created_at_desc">📅 Applied Date: Newest First</option>
+                  <option value="created_at_asc">📅 Applied Date: Oldest First</option>
+                  <option value="nearest_interview">🎯 Interview Date: Nearest First</option>
+                  <option value="interview_date_desc">🎯 Interview Date: Latest First</option>
+                </select>
+              </div>
+
+              <button onClick={() => setShowFilters((v) => !v)}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold border transition-all ${showFilters ? "border-cyan-500 bg-cyan-900/30 text-cyan-300" : "border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500"}`}>
+                <Filter className="h-4 w-4" />Filters
+                {(filterSupermarket || filterPosition || filterInterviewDate || filterAppliedDate) && (
+                  <span className="ml-1 h-5 w-5 rounded-full bg-cyan-500 text-white text-[10px] flex items-center justify-center font-bold">
+                    {[filterSupermarket, filterPosition, filterInterviewDate, filterAppliedDate].filter(Boolean).length}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
 
           <AnimatePresence>
             {showFilters && (
               <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
                   <div>
                     <label className="text-xs text-slate-400 font-semibold mb-1.5 block">Supermarket</label>
                     <select value={filterSupermarket} onChange={(e) => setFilterSupermarket(e.target.value)}
@@ -322,6 +551,37 @@ function AdminDashboard() {
                       <option value="">All Positions</option>
                       {positions.map((p) => <option key={p} value={p}>{p}</option>)}
                     </select>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs text-slate-400 font-semibold block">Date Applied (Created)</label>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setFilterAppliedDate(todayStr)}
+                          className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors ${
+                            filterAppliedDate === todayStr ? "bg-cyan-500 text-white font-bold" : "bg-slate-700 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          Today
+                        </button>
+                        {filterAppliedDate && (
+                          <button
+                            type="button"
+                            onClick={() => setFilterAppliedDate("")}
+                            className="text-[10px] text-rose-400 hover:text-rose-300 underline"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      type="date"
+                      value={filterAppliedDate}
+                      onChange={(e) => setFilterAppliedDate(e.target.value)}
+                      className="w-full rounded-xl bg-slate-800 border border-slate-700 focus:border-cyan-500 text-white px-3 py-2 text-sm outline-none"
+                    />
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
@@ -355,8 +615,8 @@ function AdminDashboard() {
                     />
                   </div>
                 </div>
-                {(filterSupermarket || filterPosition || filterInterviewDate) && (
-                  <button onClick={() => { setFilterSupermarket(""); setFilterPosition(""); setFilterInterviewDate(""); }}
+                {(filterSupermarket || filterPosition || filterInterviewDate || filterAppliedDate) && (
+                  <button onClick={() => { setFilterSupermarket(""); setFilterPosition(""); setFilterInterviewDate(""); setFilterAppliedDate(""); }}
                     className="mt-2 text-xs text-rose-400 hover:text-rose-300 underline underline-offset-2">Clear all filters</button>
                 )}
               </motion.div>
@@ -374,6 +634,20 @@ function AdminDashboard() {
             <Users className="h-12 w-12 text-slate-600" />
             <p className="text-slate-400 font-semibold">No paid applicants found</p>
             <p className="text-slate-500 text-sm">Try adjusting your search or filters</p>
+            {(filterAppliedDate || filterInterviewDate || search || filterSupermarket || filterPosition) && (
+              <button
+                onClick={() => {
+                  setFilterAppliedDate("");
+                  setFilterInterviewDate("");
+                  setFilterSupermarket("");
+                  setFilterPosition("");
+                  setSearch("");
+                }}
+                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition-all"
+              >
+                Clear all filters & search
+              </button>
+            )}
           </div>
         ) : (
           <>
@@ -382,19 +656,30 @@ function AdminDashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-slate-800/80">
-                      {["#","Name & Contact","WhatsApp","Position & Supermarket","Interview","Location","Status","Fee"].map((h) => (
+                      {["#","Applied Date","Name & Contact","WhatsApp","Position & Supermarket","Interview","Location","Status","Fee"].map((h) => (
                         <th key={h} className="text-left px-4 py-3.5 text-xs font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap">{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {applicants.map((a, idx) => {
-                      const isToday = a.interview_date === todayStr;
+                      const isTodayInterview = a.interview_date === todayStr;
+                      const isAppliedToday = a.created_at && a.created_at.slice(0, 10) === todayStr;
                       const isSoon = a.interview_date && a.interview_date > todayStr && new Date(a.interview_date).getTime() - Date.now() < 3 * 86400000;
                       return (
                         <motion.tr key={a.id ?? a.application_id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: idx * 0.02 }}
-                          className={`border-t border-slate-800/60 transition-colors hover:bg-slate-800/40 ${isToday ? "bg-emerald-950/20" : ""}`}>
+                          className={`border-t border-slate-800/60 transition-colors hover:bg-slate-800/40 ${isAppliedToday ? "bg-blue-950/20" : isTodayInterview ? "bg-emerald-950/20" : ""}`}>
                           <td className="px-4 py-3.5 text-slate-500 font-mono text-xs">{(page - 1) * PAGE_SIZE + idx + 1}</td>
+                          <td className="px-4 py-3.5 whitespace-nowrap">
+                            <span className="text-xs font-semibold text-slate-200 block">
+                              {formatDateTime(a.created_at)}
+                            </span>
+                            {isAppliedToday && (
+                              <span className="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-700">
+                                TODAY
+                              </span>
+                            )}
+                          </td>
                           <td className="px-4 py-3.5">
                             <p className="font-bold text-white">{a.full_name ?? "—"}</p>
                             <a href={`tel:${a.phone}`} className="flex items-center gap-1 text-xs text-cyan-400 hover:text-cyan-300 mt-0.5">
@@ -424,8 +709,8 @@ function AdminDashboard() {
                           <td className="px-4 py-3.5">
                             <div className="flex flex-col gap-1">
                               {a.interview_date ? (
-                                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-lg w-fit ${isToday ? "bg-emerald-500/20 text-emerald-300 border border-emerald-700" : isSoon ? "bg-amber-500/20 text-amber-300 border border-amber-700" : "bg-slate-700 text-slate-300"}`}>
-                                  <Calendar className="h-3 w-3" />{formatDate(a.interview_date)}{isToday ? " 🔴 TODAY" : ""}
+                                <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-lg w-fit ${isTodayInterview ? "bg-emerald-500/20 text-emerald-300 border border-emerald-700" : isSoon ? "bg-amber-500/20 text-amber-300 border border-amber-700" : "bg-slate-700 text-slate-300"}`}>
+                                  <Calendar className="h-3 w-3" />{formatDate(a.interview_date)}{isTodayInterview ? " 🔴 TODAY" : ""}
                                 </span>
                               ) : <span className="text-slate-500 text-xs">No date set</span>}
                               {a.interview_time && <span className="flex items-center gap-1 text-xs text-slate-400"><Clock className="h-3 w-3" />{a.interview_time}</span>}
@@ -450,19 +735,32 @@ function AdminDashboard() {
 
             <div className="lg:hidden space-y-3">
               {applicants.map((a, idx) => {
-                const isToday = a.interview_date === todayStr;
+                const isTodayInterview = a.interview_date === todayStr;
+                const isAppliedToday = a.created_at && a.created_at.slice(0, 10) === todayStr;
                 const isSoon = a.interview_date && a.interview_date > todayStr && new Date(a.interview_date).getTime() - Date.now() < 3 * 86400000;
                 return (
                   <motion.div key={a.id ?? a.application_id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: idx * 0.03 }}
-                    className={`rounded-2xl border p-4 space-y-3 ${isToday ? "border-emerald-700 bg-emerald-950/30" : isSoon ? "border-amber-700/50 bg-amber-950/20" : "border-slate-800 bg-slate-900/60"}`}>
+                    className={`rounded-2xl border p-4 space-y-3 ${isAppliedToday ? "border-blue-700/80 bg-blue-950/20" : isTodayInterview ? "border-emerald-700 bg-emerald-950/30" : isSoon ? "border-amber-700/50 bg-amber-950/20" : "border-slate-800 bg-slate-900/60"}`}>
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <p className="font-extrabold text-white text-base">{a.full_name ?? "—"}</p>
                         <p className="text-xs text-slate-400 mt-0.5 font-mono">{a.application_id}</p>
+                        {a.created_at && (
+                          <p className="text-[11px] text-cyan-400 font-medium mt-1">
+                            Applied: {formatDateTime(a.created_at)}
+                          </p>
+                        )}
                       </div>
-                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-800 shrink-0">
-                        <CheckCircle2 className="h-3 w-3" />PAID
-                      </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-800 shrink-0">
+                          <CheckCircle2 className="h-3 w-3" />PAID
+                        </span>
+                        {isAppliedToday && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300 border border-blue-700">
+                            NEW TODAY
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div><p className="text-slate-500 mb-0.5">Position</p><p className="text-white font-semibold">{a.position ?? "—"}</p></div>
@@ -486,8 +784,8 @@ function AdminDashboard() {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {a.interview_date && (
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg ${isToday ? "bg-emerald-500/20 text-emerald-300 border border-emerald-700" : isSoon ? "bg-amber-500/20 text-amber-300 border border-amber-700" : "bg-slate-700 text-slate-300"}`}>
-                          <Calendar className="h-3 w-3" />{formatDate(a.interview_date)}{isToday ? " 🔴 TODAY" : ""}
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg ${isTodayInterview ? "bg-emerald-500/20 text-emerald-300 border border-emerald-700" : isSoon ? "bg-amber-500/20 text-amber-300 border border-amber-700" : "bg-slate-700 text-slate-300"}`}>
+                          <Calendar className="h-3 w-3" />Interview: {formatDate(a.interview_date)}{isTodayInterview ? " 🔴 TODAY" : ""}
                         </span>
                       )}
                       {a.interview_time && <span className="inline-flex items-center gap-1 text-xs text-slate-400 bg-slate-800 px-2.5 py-1.5 rounded-lg"><Clock className="h-3 w-3" />{a.interview_time}</span>}
@@ -533,7 +831,16 @@ function AdminDashboard() {
 
         <div className="flex flex-wrap items-center justify-between gap-2 py-4 border-t border-slate-800 text-xs text-slate-500">
           <p>Filament Admin · Supermarket Careers</p>
-          <p>Sorted: nearest interview first</p>
+          <p>
+            Ordering:{" "}
+            {sortBy === "created_at_desc"
+              ? "Newest applications first"
+              : sortBy === "created_at_asc"
+              ? "Oldest applications first"
+              : sortBy === "nearest_interview"
+              ? "Nearest upcoming interview first"
+              : "Latest interview date first"}
+          </p>
         </div>
       </main>
     </div>
